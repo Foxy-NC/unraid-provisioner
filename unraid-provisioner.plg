@@ -1,0 +1,49 @@
+<?xml version="1.0" standalone="yes"?>
+
+<!DOCTYPE PLUGIN [
+<!ENTITY name      "unraid-provisioner">
+<!ENTITY author    "Foxy-NC">
+<!ENTITY version   "2026.07.28">
+<!ENTITY pluginURL "https://raw.githubusercontent.com/Foxy-NC/unraid-provisioner/main/&name;.plg">
+<!ENTITY txzURL     "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&version;/&name;.txz">
+<!ENTITY txzMD5URL  "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&version;/&name;.txz.md5">
+]>
+
+<PLUGIN name="&name;"
+        author="&author;"
+        version="&version;"
+        pluginURL="&pluginURL;"
+        icon="cubes"
+        min="6.12">
+
+  <CHANGES>
+###2026.07.28
+- Initial release: provisioning profiles (plugins + containers),
+  local/URL/Git import, deployment via the docker CLI, autodeploy
+  on first boot.
+  </CHANGES>
+
+  <!-- Install: unpack the payload (page, include/, scripts/, event/) -->
+  <FILE Name="/boot/config/plugins/&name;/&name;.txz" Run="/bin/bash">
+    <URL>&txzURL;</URL>
+    <MD5>&txzMD5URL;</MD5>
+    <Inline>
+installer -a "/boot/config/plugins/&name;/&name;.txz"
+mkdir -p /boot/config/plugins/&name;/profiles
+mkdir -p /boot/config/plugins/&name;/library
+chmod +x /usr/local/emhttp/plugins/&name;/scripts/*.php
+chmod +x /usr/local/emhttp/plugins/&name;/event/started
+echo "&name; &version; installed."
+    </Inline>
+  </FILE>
+
+  <!-- Remove: undo everything the install did -->
+  <FILE Run="/bin/bash" Method="remove">
+    <Inline>
+rm -rf /usr/local/emhttp/plugins/&name;
+rm -rf /boot/config/plugins/&name;
+echo "&name; removed."
+    </Inline>
+  </FILE>
+
+</PLUGIN>
