@@ -35,7 +35,7 @@
        to before executing it with Run — it is NOT a download target. -->
   <FILE Name="/tmp/&name;-install" Run="/bin/bash">
     <Inline>
-installer -a "/boot/config/plugins/&name;/&name;.txz"
+tar -xJf "/boot/config/plugins/&name;/&name;.txz" -C /
 mkdir -p /boot/config/plugins/&name;/profiles
 mkdir -p /boot/config/plugins/&name;/library
 chmod +x /usr/local/emhttp/plugins/&name;/scripts/*.php
