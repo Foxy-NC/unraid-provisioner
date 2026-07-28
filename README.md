@@ -80,13 +80,5 @@ unraid-provisioner.plg            # installer, to be hosted at a stable URL
 profiles/example-media-server.json
 ```
 
-## Next steps before actual packaging
-
-- [x] Replace `ORG/REPO` in the `.plg` file with the actual GitHub repository (`Foxy-NC/unraid-provisioner`)
-- [x] Provide an actual icon in `source/unraid-provisioner/images/` (done)
-- [ ] Package `source/unraid-provisioner/` into a `.txz` file (see the
-      unraid-plugin-builder skill, “Packaging Commands” section)
-- [ ] Test installation / deployment / removal / update on a real
-      Unraid host or a VM — nothing has been executed here, just written
-- [ ] Decide on a secrets policy for sensitive environment variables
+ets policy for sensitive environment variables
       in profiles (currently in plain text in the JSON)
