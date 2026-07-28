@@ -35,7 +35,13 @@
        to before executing it with Run — it is NOT a download target. -->
   <FILE Name="/tmp/&name;-install" Run="/bin/bash">
     <INLINE>
-tar -xJf "/boot/config/plugins/&name;/&name;.txz" -C /
+set -e
+PKG="/boot/config/plugins/&name;/&name;.txz"
+if [ ! -s "$PKG" ]; then
+  echo "ERROR: $PKG missing or empty, cannot install &name;."
+  exit 1
+fi
+xz -dc "$PKG" | tar -xf - -C /
 mkdir -p /boot/config/plugins/&name;/profiles
 mkdir -p /boot/config/plugins/&name;/library
 chmod +x /usr/local/emhttp/plugins/&name;/scripts/*.php
