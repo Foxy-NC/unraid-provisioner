@@ -30,8 +30,10 @@
     <MD5>&txzMD5;</MD5>
   </FILE>
 
-  <!-- Install: unpack the payload (page, include/, scripts/, event/) -->
-  <FILE Run="/bin/bash">
+  <!-- Install: unpack the payload (page, include/, scripts/, event/).
+       Name here is the temp script path Unraid writes the Inline content
+       to before executing it with Run — it is NOT a download target. -->
+  <FILE Name="/tmp/&name;-install" Run="/bin/bash">
     <Inline>
 installer -a "/boot/config/plugins/&name;/&name;.txz"
 mkdir -p /boot/config/plugins/&name;/profiles
@@ -43,7 +45,7 @@ echo "&name; &version; installed."
   </FILE>
 
   <!-- Remove: undo everything the install did -->
-  <FILE Run="/bin/bash" Method="remove">
+  <FILE Name="/tmp/&name;-remove" Run="/bin/bash" Method="remove">
     <Inline>
 rm -rf /usr/local/emhttp/plugins/&name;
 rm -rf /boot/config/plugins/&name;
