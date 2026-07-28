@@ -1,0 +1,27 @@
+#!/bin/bash
+# Triggered by Unraid when the array starts.
+# Runs the autodeploy profile exactly once (first boot after image
+# deployment), then leaves a marker so subsequent boots are a no-op.
+
+AUTODEPLOY_FLAG="/boot/config/plugins/unraid-provisioner/autodeploy.json"
+DONE_MARKER="/boot/config/plugins/unraid-provisioner/.autodeploy-done"
+LOG="/boot/config/plugins/unraid-provisioner/deploy.log"
+
+if [ ! -f "$AUTODEPLOY_FLAG" ]; then
+    exit 0
+fi
+
+if [ -f "$DONE_MARKER" ]; then
+    echo "[$(date)] Autodeploy already applied, skipping." >> "$LOG"
+    exit 0
+fi
+
+echo "[$(date)] First boot detected, applying autodeploy profile..." >> "$LOG"
+/usr/bin/php /usr/local/emhttp/plugins/unraid-provisioner/scripts/deploy.php "$AUTODEPLOY_FLAG" >> "$LOG" 2>&1
+
+if [ $? -eq 0 ]; then
+    touch "$DONE_MARKER"
+    echo "[$(date)] Autodeploy complete." >> "$LOG"
+else
+    echo "[$(date)] Autodeploy FAILED -- will retry on next array start." >> "$LOG"
+fi

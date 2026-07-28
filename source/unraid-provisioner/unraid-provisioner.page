@@ -1,0 +1,117 @@
+Menu="Utilities"
+Title="Provisioner"
+Icon="cubes"
+---
+<?php
+require_once '/usr/local/emhttp/plugins/unraid-provisioner/include/deploy-lib.php';
+
+if (!is_dir(PROVISIONER_BASE)) {
+    mkdir(PROVISIONER_BASE, 0755, true);
+}
+
+$message = '';
+
+// Handle form actions.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    try {
+        if ($action === 'import_url' && !empty($_POST['url'])) {
+            provisioner_import_from_url($_POST['url']);
+            $message = "Profile imported from URL.";
+        } elseif ($action === 'sync_git' && !empty($_POST['repo_url'])) {
+            provisioner_sync_git_repo($_POST['repo_url']);
+            $message = "Git repository synced.";
+        } elseif ($action === 'deploy_now' && !empty($_POST['profile_path'])) {
+            $profile = provisioner_load_profile($_POST['profile_path']);
+            provisioner_deploy_profile($profile);
+            $message = "Profile '{$profile['name']}' deployed.";
+        } elseif ($action === 'set_autodeploy' && !empty($_POST['profile_path'])) {
+            copy($_POST['profile_path'], PROVISIONER_AUTODEPLOY_FLAG);
+            @unlink(PROVISIONER_AUTODEPLOY_DONE); // allow it to run again on next first boot
+            $message = "Profile set for autodeploy on next array start.";
+        } elseif ($action === 'clear_autodeploy') {
+            @unlink(PROVISIONER_AUTODEPLOY_FLAG);
+            $message = "Autodeploy disabled.";
+        }
+    } catch (Throwable $e) {
+        $message = 'Error: ' . htmlspecialchars($e->getMessage());
+    }
+}
+
+$profiles = provisioner_list_profiles();
+$autodeployActive = is_file(PROVISIONER_AUTODEPLOY_FLAG);
+?>
+
+<style>
+.provisioner-section { margin-bottom: 24px; }
+.provisioner-table { width: 100%; border-collapse: collapse; }
+.provisioner-table th, .provisioner-table td { padding: 6px 10px; border-bottom: 1px solid #444; text-align: left; }
+.provisioner-msg { padding: 8px; margin-bottom: 16px; background: #2a2a2a; border-left: 3px solid #6a9; }
+</style>
+
+<h1>Unraid Provisioner</h1>
+
+<?php if ($message): ?>
+<div class="provisioner-msg"><?= $message ?></div>
+<?php endif; ?>
+
+<div class="provisioner-section">
+  <h2>Available profiles</h2>
+  <table class="provisioner-table">
+    <tr><th>Name</th><th>Version</th><th>Source</th><th>Plugins</th><th>Containers</th><th>Actions</th></tr>
+    <?php foreach ($profiles as $p): ?>
+    <tr>
+      <td><?= htmlspecialchars($p['name']) ?></td>
+      <td><?= htmlspecialchars($p['version']) ?></td>
+      <td><?= htmlspecialchars($p['source']) ?></td>
+      <td><?= count($p['plugins']) ?></td>
+      <td><?= count($p['containers']) ?></td>
+      <td>
+        <form method="post" style="display:inline">
+          <input type="hidden" name="action" value="deploy_now">
+          <input type="hidden" name="profile_path" value="<?= htmlspecialchars($p['path']) ?>">
+          <button type="submit">Deploy now</button>
+        </form>
+        <form method="post" style="display:inline">
+          <input type="hidden" name="action" value="set_autodeploy">
+          <input type="hidden" name="profile_path" value="<?= htmlspecialchars($p['path']) ?>">
+          <button type="submit">Set as first-boot profile</button>
+        </form>
+      </td>
+    </tr>
+    <?php endforeach; ?>
+    <?php if (empty($profiles)): ?>
+    <tr><td colspan="6">No profile found. Import one below.</td></tr>
+    <?php endif; ?>
+  </table>
+</div>
+
+<div class="provisioner-section">
+  <h2>Autodeploy on first boot</h2>
+  <p>Status: <strong><?= $autodeployActive ? 'Active' : 'Inactive' ?></strong></p>
+  <?php if ($autodeployActive): ?>
+  <form method="post">
+    <input type="hidden" name="action" value="clear_autodeploy">
+    <button type="submit">Disable autodeploy</button>
+  </form>
+  <?php endif; ?>
+</div>
+
+<div class="provisioner-section">
+  <h2>Import a profile from a URL</h2>
+  <form method="post">
+    <input type="hidden" name="action" value="import_url">
+    <input type="text" name="url" placeholder="https://.../profile.json" style="width:400px">
+    <button type="submit">Import</button>
+  </form>
+</div>
+
+<div class="provisioner-section">
+  <h2>Sync a profile library (Git repository)</h2>
+  <form method="post">
+    <input type="hidden" name="action" value="sync_git">
+    <input type="text" name="repo_url" placeholder="https://github.com/org/profiles-repo.git" style="width:400px">
+    <button type="submit">Sync</button>
+  </form>
+  <p><em>The repository must contain profiles under <code>profiles/*.json</code>.</em></p>
+</div>
