@@ -4,9 +4,10 @@
 <!ENTITY name      "unraid-provisioner">
 <!ENTITY author    "Foxy-NC">
 <!ENTITY version   "2026.07.28">
+<!ENTITY gitTag     "v&version;">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/Foxy-NC/unraid-provisioner/main/&name;.plg">
-<!ENTITY txzURL     "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&version;/&name;.txz">
-<!ENTITY txzMD5URL  "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&version;/&name;.txz.md5">
+<!ENTITY txzURL     "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&gitTag;/&name;.txz">
+<!ENTITY txzMD5URL  "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&gitTag;/&name;.txz.md5">
 ]>
 
 <PLUGIN name="&name;"
