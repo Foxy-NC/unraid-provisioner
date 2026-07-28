@@ -7,7 +7,7 @@
 <!ENTITY gitTag     "v&version;">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/Foxy-NC/unraid-provisioner/main/&name;.plg">
 <!ENTITY txzURL     "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&gitTag;/&name;.txz">
-<!ENTITY txzMD5URL  "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&gitTag;/&name;.txz.md5">
+<!ENTITY txzMD5     "0a49f96054588a3373f7d01210470926">
 ]>
 
 <PLUGIN name="&name;"
@@ -27,7 +27,7 @@
   <!-- Install: unpack the payload (page, include/, scripts/, event/) -->
   <FILE Name="/boot/config/plugins/&name;/&name;.txz" Run="/bin/bash">
     <URL>&txzURL;</URL>
-    <MD5>&txzMD5URL;</MD5>
+    <MD5>&txzMD5;</MD5>
     <Inline>
 installer -a "/boot/config/plugins/&name;/&name;.txz"
 mkdir -p /boot/config/plugins/&name;/profiles
