@@ -7,7 +7,7 @@
 <!ENTITY gitTag     "v&version;">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/Foxy-NC/unraid-provisioner/main/&name;.plg">
 <!ENTITY txzURL     "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&gitTag;/&name;.txz">
-<!ENTITY txzMD5     "ec22aa3375862bfb9f06f850c3c88b0d">
+<!ENTITY txzMD5     "9c127a37289424b1bf372dc14d080a7b">
 ]>
 
 <PLUGIN name="&name;"
