@@ -24,10 +24,14 @@
   on first boot.
   </CHANGES>
 
-  <!-- Install: unpack the payload (page, include/, scripts/, event/) -->
-  <FILE Name="/boot/config/plugins/&name;/&name;.txz" Run="/bin/bash">
+  <!-- Download: fetch the payload, verified against its MD5 -->
+  <FILE Name="/boot/config/plugins/&name;/&name;.txz">
     <URL>&txzURL;</URL>
     <MD5>&txzMD5;</MD5>
+  </FILE>
+
+  <!-- Install: unpack the payload (page, include/, scripts/, event/) -->
+  <FILE Run="/bin/bash">
     <Inline>
 installer -a "/boot/config/plugins/&name;/&name;.txz"
 mkdir -p /boot/config/plugins/&name;/profiles
