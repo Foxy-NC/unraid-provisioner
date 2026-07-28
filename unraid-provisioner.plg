@@ -34,23 +34,23 @@
        Name here is the temp script path Unraid writes the Inline content
        to before executing it with Run — it is NOT a download target. -->
   <FILE Name="/tmp/&name;-install" Run="/bin/bash">
-    <Inline>
+    <INLINE>
 tar -xJf "/boot/config/plugins/&name;/&name;.txz" -C /
 mkdir -p /boot/config/plugins/&name;/profiles
 mkdir -p /boot/config/plugins/&name;/library
 chmod +x /usr/local/emhttp/plugins/&name;/scripts/*.php
 chmod +x /usr/local/emhttp/plugins/&name;/event/started
 echo "&name; &version; installed."
-    </Inline>
+    </INLINE>
   </FILE>
 
   <!-- Remove: undo everything the install did -->
   <FILE Name="/tmp/&name;-remove" Run="/bin/bash" Method="remove">
-    <Inline>
+    <INLINE>
 rm -rf /usr/local/emhttp/plugins/&name;
 rm -rf /boot/config/plugins/&name;
 echo "&name; removed."
-    </Inline>
+    </INLINE>
   </FILE>
 
 </PLUGIN>
