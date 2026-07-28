@@ -21,7 +21,9 @@ define('PROVISIONER_AUTODEPLOY_DONE', PROVISIONER_BASE . '/.autodeploy-done');
 function provisioner_log(string $msg): void {
     $line = '[' . date('Y-m-d H:i:s') . '] ' . $msg . "\n";
     @file_put_contents(PROVISIONER_LOG, $line, FILE_APPEND);
-    fwrite(STDERR, $line);
+    if (defined('STDERR')) {
+        fwrite(STDERR, $line);
+    }
 }
 
 function provisioner_run(string $cmd): array {
@@ -189,4 +191,101 @@ function provisioner_deploy_profile(array $profile): void {
         provisioner_deploy_container($container);
     }
     provisioner_log("=== Done: '{$profile['name']}' ===");
+}
+
+/**
+ * --- Profile export (capture) ---
+ *
+ * Reads the current host state (installed plugins + running containers)
+ * back into a profile array, so a reference server can be turned into a
+ * redeployable "golden image" definition. Review the result before reuse:
+ * inspect captures the container as it runs today, including any manual
+ * tweaks made outside a profile, and plugin URLs aren't always
+ * recoverable from the host alone.
+ */
+function provisioner_exported_plugins(): array {
+    $plugins = [];
+    foreach (glob('/var/log/plugins/*.plg') as $file) {
+        $pluginName = basename($file, '.plg');
+        $xml = @simplexml_load_file($file);
+        $url = (string)($xml['pluginURL'] ?? '');
+        $plugins[] = ['name' => $pluginName, 'url' => $url ?: "REPLACE_WITH_ACTUAL_URL_FOR_{$pluginName}"];
+    }
+    return $plugins;
+}
+
+function provisioner_exported_containers(): array {
+    [$code, $names] = provisioner_run("docker ps -a --format '{{.Names}}'");
+    $containers = [];
+    foreach ($names as $cname) {
+        $cname = trim($cname);
+        if ($cname === '') continue;
+        [$code, $jsonLines] = provisioner_run('docker inspect ' . escapeshellarg($cname));
+        $inspect = json_decode(implode("\n", $jsonLines), true)[0] ?? null;
+        if (!$inspect) continue;
+
+        $env = [];
+        foreach ($inspect['Config']['Env'] ?? [] as $kv) {
+            [$k, $v] = array_pad(explode('=', $kv, 2), 2, '');
+            if ($k === 'PATH') continue; // base-image plumbing, not worth capturing
+            $env[$k] = $v;
+        }
+
+        $volumes = [];
+        foreach ($inspect['Mounts'] ?? [] as $m) {
+            if (($m['Type'] ?? '') !== 'bind') continue;
+            $volumes[] = [
+                'host' => $m['Source'],
+                'container' => $m['Destination'],
+                'mode' => ($m['RW'] ?? true) ? 'rw' : 'ro',
+            ];
+        }
+
+        $ports = [];
+        foreach ($inspect['HostConfig']['PortBindings'] ?? [] as $containerPort => $bindings) {
+            [$port, $proto] = array_pad(explode('/', $containerPort), 2, 'tcp');
+            foreach ($bindings as $b) {
+                $ports[] = ['host' => (int)$b['HostPort'], 'container' => (int)$port, 'protocol' => $proto];
+            }
+        }
+
+        $containers[] = [
+            'name' => $cname,
+            'image' => $inspect['Config']['Image'],
+            'restart_policy' => $inspect['HostConfig']['RestartPolicy']['Name'] ?? 'unless-stopped',
+            'network_mode' => $inspect['HostConfig']['NetworkMode'] ?? 'bridge',
+            'env' => $env,
+            'volumes' => $volumes,
+            'ports' => $ports,
+        ];
+    }
+    return $containers;
+}
+
+/**
+ * Build a profile array from the current host state. Does not write
+ * anything to disk — see provisioner_save_profile() for that.
+ */
+function provisioner_export_profile(string $name, string $description = ''): array {
+    return [
+        'name' => $name,
+        'version' => date('Y.m.d'),
+        'description' => $description ?: ('Exported from host on ' . date('Y-m-d H:i')),
+        'plugins' => provisioner_exported_plugins(),
+        'containers' => provisioner_exported_containers(),
+    ];
+}
+
+/**
+ * Persist a profile array as JSON under the local profiles directory
+ * (or an explicit path). Returns the path written to.
+ */
+function provisioner_save_profile(array $profile, ?string $outputPath = null): string {
+    $outputPath = $outputPath ?? (PROVISIONER_LOCAL_PROFILES . '/' . preg_replace('/[^a-zA-Z0-9_.-]/', '_', $profile['name']) . '.json');
+    if (!is_dir(dirname($outputPath))) {
+        mkdir(dirname($outputPath), 0755, true);
+    }
+    file_put_contents($outputPath, json_encode($profile, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    provisioner_log("Profile '{$profile['name']}' exported to $outputPath");
+    return $outputPath;
 }

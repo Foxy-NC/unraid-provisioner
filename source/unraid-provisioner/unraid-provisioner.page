@@ -32,6 +32,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'clear_autodeploy') {
             @unlink(PROVISIONER_AUTODEPLOY_FLAG);
             $message = "Autodeploy disabled.";
+        } elseif ($action === 'export_profile' && !empty($_POST['export_name'])) {
+            $profile = provisioner_export_profile($_POST['export_name'], $_POST['export_description'] ?? '');
+            $written = provisioner_save_profile($profile);
+            $message = "Profile '{$profile['name']}' generated from this server ("
+                . count($profile['plugins']) . " plugin(s), "
+                . count($profile['containers']) . " container(s)). "
+                . "Review it before reuse -- see " . htmlspecialchars($written) . ".";
         }
     } catch (Throwable $e) {
         $message = 'Error: ' . htmlspecialchars($e->getMessage());
@@ -95,6 +102,17 @@ $autodeployActive = is_file(PROVISIONER_AUTODEPLOY_FLAG);
     <button type="submit">Disable autodeploy</button>
   </form>
   <?php endif; ?>
+</div>
+
+<div class="provisioner-section">
+  <h2>Generate a profile from this server</h2>
+  <p><em>Captures currently installed plugins and running containers into a new profile. Review the result before deploying it elsewhere -- plugin URLs and container settings are captured best-effort from the live host.</em></p>
+  <form method="post">
+    <input type="hidden" name="action" value="export_profile">
+    <input type="text" name="export_name" placeholder="profile-name" style="width:200px" required>
+    <input type="text" name="export_description" placeholder="Description (optional)" style="width:300px">
+    <button type="submit">Generate profile</button>
+  </form>
 </div>
 
 <div class="provisioner-section">

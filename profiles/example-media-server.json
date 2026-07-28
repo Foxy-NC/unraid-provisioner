@@ -1,0 +1,51 @@
+{
+  "name": "media-server-standard",
+  "version": "2026.07.28",
+  "description": "Turnkey media server: library management + arr-stack",
+
+  "plugins": [
+    {
+      "name": "community.applications",
+      "url": "https://raw.githubusercontent.com/Squidly271/community.applications/master/plugins/community.applications.plg"
+    }
+  ],
+
+  "containers": [
+    {
+      "name": "plex",
+      "image": "linuxserver/plex:latest",
+      "restart_policy": "unless-stopped",
+      "network_mode": "host",
+      "env": {
+        "PUID": "99",
+        "PGID": "100",
+        "TZ": "Pacific/Noumea",
+        "VERSION": "docker"
+      },
+      "volumes": [
+        { "host": "/mnt/user/appdata/plex", "container": "/config" },
+        { "host": "/mnt/user/media", "container": "/media" }
+      ],
+      "extra_args": []
+    },
+    {
+      "name": "sonarr",
+      "image": "linuxserver/sonarr:latest",
+      "restart_policy": "unless-stopped",
+      "network_mode": "bridge",
+      "ports": [
+        { "host": 8989, "container": 8989, "protocol": "tcp" }
+      ],
+      "env": {
+        "PUID": "99",
+        "PGID": "100",
+        "TZ": "Pacific/Noumea"
+      },
+      "volumes": [
+        { "host": "/mnt/user/appdata/sonarr", "container": "/config" },
+        { "host": "/mnt/user/media/tv", "container": "/tv" },
+        { "host": "/mnt/user/downloads", "container": "/downloads" }
+      ]
+    }
+  ]
+}
