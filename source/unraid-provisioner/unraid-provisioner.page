@@ -3,6 +3,7 @@ Title="Provisioner"
 Icon="cubes"
 ---
 <?php
+global $var;
 require_once '/usr/local/emhttp/plugins/unraid-provisioner/include/deploy-lib.php';
 
 if (!is_dir(PROVISIONER_BASE)) {
@@ -75,11 +76,13 @@ $autodeployActive = is_file(PROVISIONER_AUTODEPLOY_FLAG);
       <td><?= count($p['containers']) ?></td>
       <td>
         <form method="post" style="display:inline">
+          <input type="hidden" name="csrf_token" value="<?=$var['csrf_token'];?>">
           <input type="hidden" name="action" value="deploy_now">
           <input type="hidden" name="profile_path" value="<?= htmlspecialchars($p['path']) ?>">
           <button type="submit">Deploy now</button>
         </form>
         <form method="post" style="display:inline">
+          <input type="hidden" name="csrf_token" value="<?=$var['csrf_token'];?>">
           <input type="hidden" name="action" value="set_autodeploy">
           <input type="hidden" name="profile_path" value="<?= htmlspecialchars($p['path']) ?>">
           <button type="submit">Set as first-boot profile</button>
@@ -98,6 +101,7 @@ $autodeployActive = is_file(PROVISIONER_AUTODEPLOY_FLAG);
   <p>Status: <strong><?= $autodeployActive ? 'Active' : 'Inactive' ?></strong></p>
   <?php if ($autodeployActive): ?>
   <form method="post">
+          <input type="hidden" name="csrf_token" value="<?=$var['csrf_token'];?>">
     <input type="hidden" name="action" value="clear_autodeploy">
     <button type="submit">Disable autodeploy</button>
   </form>
@@ -108,6 +112,7 @@ $autodeployActive = is_file(PROVISIONER_AUTODEPLOY_FLAG);
   <h2>Generate a profile from this server</h2>
   <p><em>Captures currently installed plugins and running containers into a new profile. Review the result before deploying it elsewhere -- plugin URLs and container settings are captured best-effort from the live host.</em></p>
   <form method="post">
+          <input type="hidden" name="csrf_token" value="<?=$var['csrf_token'];?>">
     <input type="hidden" name="action" value="export_profile">
     <input type="text" name="export_name" placeholder="profile-name" style="width:200px" required>
     <input type="text" name="export_description" placeholder="Description (optional)" style="width:300px">
@@ -118,6 +123,7 @@ $autodeployActive = is_file(PROVISIONER_AUTODEPLOY_FLAG);
 <div class="provisioner-section">
   <h2>Import a profile from a URL</h2>
   <form method="post">
+          <input type="hidden" name="csrf_token" value="<?=$var['csrf_token'];?>">
     <input type="hidden" name="action" value="import_url">
     <input type="text" name="url" placeholder="https://.../profile.json" style="width:400px">
     <button type="submit">Import</button>
@@ -127,6 +133,7 @@ $autodeployActive = is_file(PROVISIONER_AUTODEPLOY_FLAG);
 <div class="provisioner-section">
   <h2>Sync a profile library (Git repository)</h2>
   <form method="post">
+          <input type="hidden" name="csrf_token" value="<?=$var['csrf_token'];?>">
     <input type="hidden" name="action" value="sync_git">
     <input type="text" name="repo_url" placeholder="https://github.com/org/profiles-repo.git" style="width:400px">
     <button type="submit">Sync</button>
