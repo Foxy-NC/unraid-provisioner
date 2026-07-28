@@ -1,84 +1,78 @@
 # unraid-provisioner
 
-Unraid plugin for deploying “turnkey” servers based on **profiles**
-that describe the Docker plugins and containers to be installed manually or
-automatically when the array is first booted.
+Unraid plugin to deploy turnkey servers from **profiles** describing which
+plugins and Docker containers to install — manually or automatically on the
+first boot of the array.
 
 ## Concept
 
-A **profile** is a JSON file that describes a template:
+A **profile** is a JSON file describing a golden image:
 
 ```json
 {
-  “name”: “media-server-standard”,
-  “version”: “2026.07.28”,
-  “plugins”: [ { “name”: “...”, ‘url’: “https://.../plugin.plg” } ],
-  “containers”: [ { “name”: “plex”, ‘image’: “linuxserver/plex:latest”, ... } ]
+  "name": "media-server-standard",
+  "version": "2026.07.28",
+  "plugins": [ { "name": "...", "url": "https://.../plugin.plg" } ],
+  "containers": [ { "name": "plex", "image": "linuxserver/plex:latest", ... } ]
 }
 ```
 
-See `profiles/example-media-server.json` for a complete example.
+See `profiles/example-media-server.json` for a full example.
 
-Containers are deployed via **direct calls to the Docker API/CLI**
-(`docker run ...` built from the profile fields) — intentionally
-independent of the Community Applications template format, to remain
-portable and scriptable.
+Containers are deployed through **direct Docker API/CLI calls**
+(`docker run ...` built from the profile's fields) — deliberately independent
+of the Community Applications template format, to stay portable and
+scriptable.
 
-## Profile Storage and Distribution
+## Profile storage and distribution
 
-- **Local**: stored under `/boot/config/plugins/unraid-provisioner/profiles/`
-  (persistent on the USB drive, survives reboots).
-- **Import from a URL**: a simple `curl` command for a single JSON file,
-  copied to `.../library/`.
-- **Centralized Git Repository**: `git clone`/`pull` of a repository containing
-  `profiles/*.json`, to manage a library shared among multiple
-  servers.
+- **Local**: dropped under `/boot/config/plugins/unraid-provisioner/profiles/`
+  (persisted on the USB flash, survives reboots).
+- **Import from a URL**: a plain `curl` of a single JSON file, copied into
+  `.../library/`.
+- **Centralized Git repository**: `git clone`/`pull` of a repo containing
+  `profiles/*.json`, to manage a shared library across multiple servers.
 
-Both import mechanisms populate the same `library/` folder, so
-all profiles appear together in the WebGUI.
+Both import mechanisms feed the same `library/` folder, so all profiles show
+up together on the webGui page.
 
-## Auto-deployment on first boot
+## Autodeploy on first boot
 
+1. On the **Provisioner** page, pick a profile then "Set as first-boot
+   profile" → copied to `autodeploy.json`.
+2. On the next array start, the `event/started` hook detects the file, runs
+   `deploy.php` against it, then drops a `.autodeploy-done` marker so the
+   deployment isn't replayed on later reboots.
+3. To reprovision (e.g. a new image based on this master), just start from a
+   fresh USB flash drive with `autodeploy.json` already in place and without
+   the `.autodeploy-done` marker.
 
-
-1. On the **Provisioner** page, select a profile, then "Set as
-   first-boot profile" → copied to `autodeploy.json`.
-2. The next time the array boots, the `event/started` event hook detects the
-   file, runs `deploy.php` on it, and then sets a marker
-   `.autodeploy-done` so that the deployment is not repeated on subsequent
-   reboots.
-3. To reprovision (e.g., a new image based on this master), simply
-   start from a fresh USB drive with `autodeploy.json` already in place and
-   without the `.autodeploy-done` marker.
-
-## Creating a template image from an existing server
+## Building a golden image from an existing server
 
 ```bash
 php /usr/local/emhttp/plugins/unraid-provisioner/scripts/export-profile.php media-server-standard
 ```
 
-Captures the installed plugins and running containers in a
-JSON profile. **Review before reusing**: plugin URLs are not
-always retrievable from the host (the generated file marks them as
-`REPLACE_WITH_ACTUAL_URL_*` where applicable), and the captured volumes/env
-reflect the current state of the container, not necessarily what should be
-in a “clean” profile for redeployment.
+Captures installed plugins and running containers into a profile JSON.
+**Review it before reuse**: plugin URLs aren't always recoverable from the
+host alone (the generated file flags them `REPLACE_WITH_ACTUAL_URL_*` when
+this happens), and the captured volumes/env reflect the container's current
+state, not necessarily what should be in a "clean" profile meant for
+redeployment.
 
-## Repository structure (to be packaged)
+## Repository layout (to be packaged)
 
 ```
 source/unraid-provisioner/
-├── unraid-provisioner.page      # Web GUI page (Menu > Utilities > Provisioner)
-├── include/deploy-lib.php       # Deployment engine (plugins + containers)
+├── unraid-provisioner.page      # webGui page (Menu > Utilities > Provisioner)
+├── include/deploy-lib.php       # deployment engine (plugins + containers)
 ├── scripts/
-│   ├── deploy.php                # CLI: applies a profile
-│   └── export-profile.php        # CLI: saves the current state as a profile
-├── event/started                 # hook: auto-deployment on startup array
-└── images/                       # plugin icon (to be provided)
+│   ├── deploy.php                # CLI: apply a profile
+│   └── export-profile.php        # CLI: capture current state into a profile
+├── event/started                 # hook: autodeploy on array start
+└── images/                       # plugin icon
 
-unraid-provisioner.plg            # installer, to be hosted at a stable URL
+unraid-provisioner.plg            # installer, to host at a stable URL
 profiles/example-media-server.json
 ```
 
-ets policy for sensitive environment variables
-      in profiles (currently in plain text in the JSON)
