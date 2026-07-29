@@ -53,7 +53,7 @@ From the **Provisioner** webGui page:
 - **"Generate a profile from this server"** captures everything -- all installed plugins and all running containers -- into a new profile in one click.
 - **"Build a custom profile"** shows plugins in a left column and containers in a right column, both sorted alphabetically and filterable by category, and lets you pick a subset via checkboxes: only the items you select go into the new profile.
 - Both forms have an **"Anonymize secrets in output"** checkbox. When checked, environment variable values whose key name looks like a secret (password, token, API key, etc.) are replaced with a `CHANGE_ME` placeholder in the saved profile -- useful before committing a profile to a shared/public Git repository. This is a best-effort keyword match on the variable name, not a guarantee; review the output before sharing it.
-- Each row in **"Available profiles"** has a **Download** button (serves the raw JSON via a standalone endpoint, `download-profile.php`) and the profile name itself is a link to **view the JSON inline** on the page.
+- Each row in **"Available profiles"** has a **Download** button (serves the raw JSON via a standalone endpoint, `download-profile.php`) and the profile name itself opens an **in-page preview overlay** (loaded via AJAX from `view-profile.php`, no navigation or extra tab).
 
 The full capture is also available from the CLI:
 

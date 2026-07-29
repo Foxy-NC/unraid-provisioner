@@ -11,29 +11,6 @@ if (!is_dir(PROVISIONER_BASE)) {
     mkdir(PROVISIONER_BASE, 0755, true);
 }
 
-// Resolve a view token to a known profile path -- never trust a raw path
-// from the query string, only accept one that matches an entry already
-// returned by provisioner_list_profiles().
-function provisioner_resolve_profile_token(string $token): ?array {
-    $decoded = base64_decode($token, true);
-    if ($decoded === false) return null;
-    foreach (provisioner_list_profiles() as $p) {
-        if ($p['path'] === $decoded) return $p;
-    }
-    return null;
-}
-
-// View: read the file now, rendered inline further down the page.
-$viewedProfileName = null;
-$viewedProfileJson = null;
-if (isset($_GET['view'])) {
-    $found = provisioner_resolve_profile_token($_GET['view']);
-    if ($found !== null) {
-        $viewedProfileName = $found['name'];
-        $viewedProfileJson = file_get_contents($found['path']);
-    }
-}
-
 $message = '';
 
 // Handle form actions.
@@ -117,21 +94,13 @@ sort($containerCategories);
 <div class="provisioner-msg"><?= $message ?></div>
 <?php endif; ?>
 
-<?php if ($viewedProfileJson !== null): ?>
-<div class="provisioner-section">
-  <h2>Viewing: <?= htmlspecialchars($viewedProfileName) ?></h2>
-  <pre style="background:#111; padding:12px; overflow:auto; max-height:500px; border:1px solid #444;"><?= htmlspecialchars($viewedProfileJson) ?></pre>
-  <p><a href="?">Close</a></p>
-</div>
-<?php endif; ?>
-
 <div class="provisioner-section">
   <h2>Available profiles</h2>
   <table class="provisioner-table">
     <tr><th>Name</th><th>Version</th><th>Source</th><th>Plugins</th><th>Containers</th><th>Actions</th></tr>
     <?php foreach ($profiles as $p): $token = base64_encode($p['path']); ?>
     <tr>
-      <td><a href="?view=<?= urlencode($token) ?>" title="View JSON"><?= htmlspecialchars($p['name']) ?></a></td>
+      <td><a href="#" onclick="provisionerViewProfile('<?= urlencode($token) ?>', '<?= htmlspecialchars($p['name'], ENT_QUOTES) ?>'); return false;" title="Preview JSON"><?= htmlspecialchars($p['name']) ?></a></td>
       <td><?= htmlspecialchars($p['version']) ?></td>
       <td><?= htmlspecialchars($p['source']) ?></td>
       <td><?= count($p['plugins']) ?></td>
@@ -276,3 +245,42 @@ function provFilter(select, cls) {
   </form>
   <p><em>The repository must contain profiles under <code>profiles/*.json</code>.</em></p>
 </div>
+
+<!-- Preview overlay: loaded via AJAX so viewing a profile never navigates
+     away from the plugin page (avoids Unraid's "External Link" prompt and
+     the extra tab that came with a plain <a href> to a different path). -->
+<div id="provisioner-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999;">
+  <div style="background:#1a1a1a; border:1px solid #555; max-width:800px; margin:60px auto; padding:20px; max-height:80vh; display:flex; flex-direction:column;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 id="provisioner-overlay-title" style="margin:0;"></h3>
+      <button type="button" onclick="provisionerCloseOverlay()">Close</button>
+    </div>
+    <pre id="provisioner-overlay-content" style="background:#111; padding:12px; overflow:auto; border:1px solid #444; flex:1;"></pre>
+  </div>
+</div>
+
+<script>
+function provisionerViewProfile(token, name) {
+  var overlay = document.getElementById('provisioner-overlay');
+  var title = document.getElementById('provisioner-overlay-title');
+  var content = document.getElementById('provisioner-overlay-content');
+  title.textContent = name;
+  content.textContent = 'Loading...';
+  overlay.style.display = 'block';
+  fetch('/plugins/unraid-provisioner/view-profile.php?token=' + token)
+    .then(function (r) { return r.text(); })
+    .then(function (text) {
+      try {
+        content.textContent = JSON.stringify(JSON.parse(text), null, 2);
+      } catch (e) {
+        content.textContent = text;
+      }
+    })
+    .catch(function () {
+      content.textContent = 'Failed to load profile.';
+    });
+}
+function provisionerCloseOverlay() {
+  document.getElementById('provisioner-overlay').style.display = 'none';
+}
+</script>
