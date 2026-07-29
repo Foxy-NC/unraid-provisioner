@@ -216,13 +216,23 @@ function provisioner_exported_plugins(): array {
 
 function provisioner_exported_containers(): array {
     [$code, $names] = provisioner_run("docker ps -a --format '{{.Names}}'");
+    $names = array_values(array_filter(array_map('trim', $names), fn($n) => $n !== ''));
+    if (empty($names)) {
+        return [];
+    }
+
+    // One docker inspect call for every container, instead of one call per
+    // container -- with dozens of containers, N separate shell exec()s
+    // dominate page load time; a single batched call returns the same
+    // data as a JSON array in one process spawn.
+    $quoted = implode(' ', array_map('escapeshellarg', $names));
+    [$code, $jsonLines] = provisioner_run("docker inspect $quoted");
+    $inspects = json_decode(implode("\n", $jsonLines), true) ?? [];
+
     $containers = [];
-    foreach ($names as $cname) {
-        $cname = trim($cname);
+    foreach ($inspects as $inspect) {
+        $cname = ltrim($inspect['Name'] ?? '', '/');
         if ($cname === '') continue;
-        [$code, $jsonLines] = provisioner_run('docker inspect ' . escapeshellarg($cname));
-        $inspect = json_decode(implode("\n", $jsonLines), true)[0] ?? null;
-        if (!$inspect) continue;
 
         $env = [];
         foreach ($inspect['Config']['Env'] ?? [] as $kv) {
@@ -353,24 +363,37 @@ function provisioner_anonymize_containers(array $containers): array {
  * Best-effort category lookup, used by the webGui to group and filter the
  * plugin/container picker lists. Not part of the deployed profile schema.
  */
-function provisioner_container_category(string $containerName): string {
+function provisioner_container_category_map(): array {
+    static $map = null;
+    if ($map !== null) {
+        return $map;
+    }
+    $map = [];
     $templatesDir = '/boot/config/plugins/dockerMan/templates-user';
     if (is_dir($templatesDir)) {
         foreach (glob($templatesDir . '/*.xml') as $file) {
             $xml = @simplexml_load_file($file);
-            if ($xml && (string)($xml->Name ?? '') === $containerName) {
-                $cat = trim((string)($xml->Category ?? ''), " \t\n\r\0\x0B:");
-                if ($cat !== '') {
-                    // A template can list several colon-separated categories
-                    // (e.g. "MediaApp: Tools:") -- use the first as the
-                    // primary category for filtering purposes.
-                    $first = trim(explode(':', $cat)[0]);
-                    if ($first !== '') return $first;
-                }
+            if (!$xml) continue;
+            $name = (string)($xml->Name ?? '');
+            if ($name === '') continue;
+            $cat = trim((string)($xml->Category ?? ''), " \t\n\r\0\x0B:");
+            if ($cat !== '') {
+                // A template can list several colon-separated categories
+                // (e.g. "MediaApp: Tools:") -- use the first as the
+                // primary category for filtering purposes.
+                $first = trim(explode(':', $cat)[0]);
+                $map[$name] = $first !== '' ? $first : 'Uncategorized';
+            } else {
+                $map[$name] = 'Uncategorized';
             }
         }
     }
-    return 'Uncategorized';
+    return $map;
+}
+
+function provisioner_container_category(string $containerName): string {
+    $map = provisioner_container_category_map();
+    return $map[$containerName] ?? 'Uncategorized';
 }
 
 function provisioner_plugin_category(string $pluginFile): string {
