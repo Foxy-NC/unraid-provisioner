@@ -193,6 +193,7 @@ sort($containerCategories);
     <p>
       <input type="text" name="build_name" placeholder="profile-name" style="width:200px" required>
       <input type="text" name="build_description" placeholder="Description (optional)" style="width:300px">
+      <button type="submit">Build profile</button>
     </p>
     <p><label><input type="checkbox" name="anonymize" value="1"> Anonymize secrets in output</label></p>
 
@@ -243,8 +244,6 @@ sort($containerCategories);
         </div>
       </div>
     </div>
-
-    <p><button type="submit">Build profile</button></p>
   </form>
 </div>
 
