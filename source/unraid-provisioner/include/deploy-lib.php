@@ -289,3 +289,27 @@ function provisioner_save_profile(array $profile, ?string $outputPath = null): s
     provisioner_log("Profile '{$profile['name']}' exported to $outputPath");
     return $outputPath;
 }
+
+/**
+ * Build a profile from a hand-picked subset of this host's installed
+ * plugins and existing containers -- as opposed to provisioner_export_profile(),
+ * which always captures everything. Used by the webGui's profile builder,
+ * where the user selects which items to include via checkboxes.
+ */
+function provisioner_build_profile(string $name, string $description, array $selectedPluginNames, array $selectedContainerNames): array {
+    $plugins = array_values(array_filter(
+        provisioner_exported_plugins(),
+        fn($p) => in_array($p['name'], $selectedPluginNames, true)
+    ));
+    $containers = array_values(array_filter(
+        provisioner_exported_containers(),
+        fn($c) => in_array($c['name'], $selectedContainerNames, true)
+    ));
+    return [
+        'name' => $name,
+        'version' => date('Y.m.d'),
+        'description' => $description ?: ('Custom profile built on ' . date('Y-m-d H:i')),
+        'plugins' => $plugins,
+        'containers' => $containers,
+    ];
+}

@@ -49,9 +49,11 @@ up together on the webGui page.
 
 ## Building a golden image from an existing server
 
-From the **Provisioner** webGui page, use "Generate a profile from this server" -- enter a name and it captures installed plugins and running containers into a new profile, listed alongside the others immediately.
+From the **Provisioner** webGui page:
+- **"Generate a profile from this server"** captures everything -- all installed plugins and all running containers -- into a new profile in one click.
+- **"Build a custom profile"** lets you pick a subset via checkboxes: only the plugins and containers you select go into the new profile.
 
-The same capture is available from the CLI:
+The full capture is also available from the CLI:
 
 ```bash
 php /usr/local/emhttp/plugins/unraid-provisioner/scripts/export-profile.php media-server-standard
