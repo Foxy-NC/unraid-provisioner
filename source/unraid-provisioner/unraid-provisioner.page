@@ -11,6 +11,29 @@ if (!is_dir(PROVISIONER_BASE)) {
     mkdir(PROVISIONER_BASE, 0755, true);
 }
 
+// Resolve a view token to a known profile path -- never trust a raw path
+// from the query string, only accept one that matches an entry already
+// returned by provisioner_list_profiles().
+function provisioner_resolve_profile_token(string $token): ?array {
+    $decoded = base64_decode($token, true);
+    if ($decoded === false) return null;
+    foreach (provisioner_list_profiles() as $p) {
+        if ($p['path'] === $decoded) return $p;
+    }
+    return null;
+}
+
+// View: read the file now, rendered inline further down the page.
+$viewedProfileName = null;
+$viewedProfileJson = null;
+if (isset($_GET['view'])) {
+    $found = provisioner_resolve_profile_token($_GET['view']);
+    if ($found !== null) {
+        $viewedProfileName = $found['name'];
+        $viewedProfileJson = file_get_contents($found['path']);
+    }
+}
+
 $message = '';
 
 // Handle form actions.
@@ -67,6 +90,7 @@ foreach ($availablePlugins as &$p) {
     $p['category'] = provisioner_plugin_category("/var/log/plugins/{$p['name']}.plg");
 }
 unset($p);
+usort($availablePlugins, fn($a, $b) => strcasecmp($a['name'], $b['name']));
 $pluginCategories = array_values(array_unique(array_column($availablePlugins, 'category')));
 sort($pluginCategories);
 
@@ -75,6 +99,7 @@ foreach ($availableContainers as &$c) {
     $c['category'] = provisioner_container_category($c['name']);
 }
 unset($c);
+usort($availableContainers, fn($a, $b) => strcasecmp($a['name'], $b['name']));
 $containerCategories = array_values(array_unique(array_column($availableContainers, 'category')));
 sort($containerCategories);
 ?>
@@ -92,13 +117,21 @@ sort($containerCategories);
 <div class="provisioner-msg"><?= $message ?></div>
 <?php endif; ?>
 
+<?php if ($viewedProfileJson !== null): ?>
+<div class="provisioner-section">
+  <h2>Viewing: <?= htmlspecialchars($viewedProfileName) ?></h2>
+  <pre style="background:#111; padding:12px; overflow:auto; max-height:500px; border:1px solid #444;"><?= htmlspecialchars($viewedProfileJson) ?></pre>
+  <p><a href="?">Close</a></p>
+</div>
+<?php endif; ?>
+
 <div class="provisioner-section">
   <h2>Available profiles</h2>
   <table class="provisioner-table">
     <tr><th>Name</th><th>Version</th><th>Source</th><th>Plugins</th><th>Containers</th><th>Actions</th></tr>
-    <?php foreach ($profiles as $p): ?>
+    <?php foreach ($profiles as $p): $token = base64_encode($p['path']); ?>
     <tr>
-      <td><?= htmlspecialchars($p['name']) ?></td>
+      <td><a href="?view=<?= urlencode($token) ?>" title="View JSON"><?= htmlspecialchars($p['name']) ?></a></td>
       <td><?= htmlspecialchars($p['version']) ?></td>
       <td><?= htmlspecialchars($p['source']) ?></td>
       <td><?= count($p['plugins']) ?></td>
@@ -116,6 +149,7 @@ sort($containerCategories);
           <input type="hidden" name="profile_path" value="<?= htmlspecialchars($p['path']) ?>">
           <button type="submit">Set as first-boot profile</button>
         </form>
+        <a href="/plugins/unraid-provisioner/download-profile.php?token=<?= urlencode($token) ?>"><button type="button">Download</button></a>
       </td>
     </tr>
     <?php endforeach; ?>
