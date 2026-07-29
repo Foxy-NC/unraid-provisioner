@@ -9,7 +9,7 @@
 <!ENTITY supportURL "https://github.com/Foxy-NC/unraid-provisioner">
 <!ENTITY iconURL    "unraid-provisioner.png">
 <!ENTITY txzURL     "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&gitTag;/&name;.txz">
-<!ENTITY txzMD5     "9a656f1bd0928d604036b872fd6ab6d7">
+<!ENTITY txzMD5     "0512ca24099880e98535d468eafac080">
 ]>
 
 <PLUGIN name="&name;"
