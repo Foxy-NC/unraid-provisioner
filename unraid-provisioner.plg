@@ -7,6 +7,7 @@
 <!ENTITY gitTag     "v&version;">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/Foxy-NC/unraid-provisioner/main/&name;.plg">
 <!ENTITY supportURL "https://github.com/Foxy-NC/unraid-provisioner">
+<!ENTITY iconURL    "https://raw.githubusercontent.com/Foxy-NC/unraid-provisioner/main/source/unraid-provisioner/images/unraid-provisioner.png">
 <!ENTITY txzURL     "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&gitTag;/&name;.txz">
 <!ENTITY txzMD5     "0512ca24099880e98535d468eafac080">
 ]>
@@ -16,7 +17,7 @@
         version="&version;"
         pluginURL="&pluginURL;"
         support="&supportURL;"
-        icon="cubes"
+        icon="&iconURL;"
         min="6.12">
 
   <CHANGES>
