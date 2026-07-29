@@ -266,13 +266,17 @@ function provisioner_exported_containers(): array {
  * Build a profile array from the current host state. Does not write
  * anything to disk — see provisioner_save_profile() for that.
  */
-function provisioner_export_profile(string $name, string $description = ''): array {
+function provisioner_export_profile(string $name, string $description = '', bool $anonymize = false): array {
+    $containers = provisioner_exported_containers();
+    if ($anonymize) {
+        $containers = provisioner_anonymize_containers($containers);
+    }
     return [
         'name' => $name,
         'version' => date('Y.m.d'),
         'description' => $description ?: ('Exported from host on ' . date('Y-m-d H:i')),
         'plugins' => provisioner_exported_plugins(),
-        'containers' => provisioner_exported_containers(),
+        'containers' => $containers,
     ];
 }
 
@@ -296,7 +300,7 @@ function provisioner_save_profile(array $profile, ?string $outputPath = null): s
  * which always captures everything. Used by the webGui's profile builder,
  * where the user selects which items to include via checkboxes.
  */
-function provisioner_build_profile(string $name, string $description, array $selectedPluginNames, array $selectedContainerNames): array {
+function provisioner_build_profile(string $name, string $description, array $selectedPluginNames, array $selectedContainerNames, bool $anonymize = false): array {
     $plugins = array_values(array_filter(
         provisioner_exported_plugins(),
         fn($p) => in_array($p['name'], $selectedPluginNames, true)
@@ -305,6 +309,9 @@ function provisioner_build_profile(string $name, string $description, array $sel
         provisioner_exported_containers(),
         fn($c) => in_array($c['name'], $selectedContainerNames, true)
     ));
+    if ($anonymize) {
+        $containers = provisioner_anonymize_containers($containers);
+    }
     return [
         'name' => $name,
         'version' => date('Y.m.d'),
@@ -312,4 +319,65 @@ function provisioner_build_profile(string $name, string $description, array $sel
         'plugins' => $plugins,
         'containers' => $containers,
     ];
+}
+
+/**
+ * --- Secret anonymization ---
+ *
+ * Redacts environment variable values whose key name suggests a secret
+ * (password, token, API key, etc.), replacing them with a clearly-marked
+ * placeholder. Applied on request when generating/building a profile, so
+ * the resulting JSON is safe to commit to a shared/public profile
+ * repository. This is a best-effort keyword match on the variable name,
+ * not a guarantee -- review the output before sharing it.
+ */
+function provisioner_looks_like_secret_key(string $key): bool {
+    return (bool)preg_match('/pass|pwd|secret|token|api[_-]?key|auth|credential/i', $key);
+}
+
+function provisioner_anonymize_containers(array $containers): array {
+    foreach ($containers as &$c) {
+        foreach ($c['env'] ?? [] as $key => $value) {
+            if (provisioner_looks_like_secret_key($key)) {
+                $c['env'][$key] = 'CHANGE_ME';
+            }
+        }
+    }
+    unset($c);
+    return $containers;
+}
+
+/**
+ * --- Category detection (display/filtering only) ---
+ *
+ * Best-effort category lookup, used by the webGui to group and filter the
+ * plugin/container picker lists. Not part of the deployed profile schema.
+ */
+function provisioner_container_category(string $containerName): string {
+    $templatesDir = '/boot/config/plugins/dockerMan/templates-user';
+    if (is_dir($templatesDir)) {
+        foreach (glob($templatesDir . '/*.xml') as $file) {
+            $xml = @simplexml_load_file($file);
+            if ($xml && (string)($xml->Name ?? '') === $containerName) {
+                $cat = trim((string)($xml->Category ?? ''), " \t\n\r\0\x0B:");
+                if ($cat !== '') {
+                    // A template can list several colon-separated categories
+                    // (e.g. "MediaApp: Tools:") -- use the first as the
+                    // primary category for filtering purposes.
+                    $first = trim(explode(':', $cat)[0]);
+                    if ($first !== '') return $first;
+                }
+            }
+        }
+    }
+    return 'Uncategorized';
+}
+
+function provisioner_plugin_category(string $pluginFile): string {
+    $xml = @simplexml_load_file($pluginFile);
+    if ($xml) {
+        $cat = trim((string)($xml['category'] ?? ''));
+        if ($cat !== '') return $cat;
+    }
+    return 'Uncategorized';
 }

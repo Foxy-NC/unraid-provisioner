@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             @unlink(PROVISIONER_AUTODEPLOY_FLAG);
             $message = "Autodeploy disabled.";
         } elseif ($action === 'export_profile' && !empty($_POST['export_name'])) {
-            $profile = provisioner_export_profile($_POST['export_name'], $_POST['export_description'] ?? '');
+            $profile = provisioner_export_profile($_POST['export_name'], $_POST['export_description'] ?? '', !empty($_POST['anonymize']));
             $written = provisioner_save_profile($profile);
             $message = "Profile '{$profile['name']}' generated from this server ("
                 . count($profile['plugins']) . " plugin(s), "
@@ -46,7 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_POST['build_name'],
                 $_POST['build_description'] ?? '',
                 $_POST['plugins'] ?? [],
-                $_POST['containers'] ?? []
+                $_POST['containers'] ?? [],
+                !empty($_POST['anonymize'])
             );
             $written = provisioner_save_profile($profile);
             $message = "Custom profile '{$profile['name']}' built with "
@@ -60,8 +61,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $profiles = provisioner_list_profiles();
 $autodeployActive = is_file(PROVISIONER_AUTODEPLOY_FLAG);
+
 $availablePlugins = provisioner_exported_plugins();
+foreach ($availablePlugins as &$p) {
+    $p['category'] = provisioner_plugin_category("/var/log/plugins/{$p['name']}.plg");
+}
+unset($p);
+$pluginCategories = array_values(array_unique(array_column($availablePlugins, 'category')));
+sort($pluginCategories);
+
 $availableContainers = provisioner_exported_containers();
+foreach ($availableContainers as &$c) {
+    $c['category'] = provisioner_container_category($c['name']);
+}
+unset($c);
+$containerCategories = array_values(array_unique(array_column($availableContainers, 'category')));
+sort($containerCategories);
 ?>
 
 <style>
@@ -130,6 +145,7 @@ $availableContainers = provisioner_exported_containers();
     <input type="hidden" name="action" value="export_profile">
     <input type="text" name="export_name" placeholder="profile-name" style="width:200px" required>
     <input type="text" name="export_description" placeholder="Description (optional)" style="width:300px">
+    <label><input type="checkbox" name="anonymize" value="1"> Anonymize secrets in output</label>
     <button type="submit">Generate profile</button>
   </form>
 </div>
@@ -144,30 +160,68 @@ $availableContainers = provisioner_exported_containers();
       <input type="text" name="build_name" placeholder="profile-name" style="width:200px" required>
       <input type="text" name="build_description" placeholder="Description (optional)" style="width:300px">
     </p>
+    <p><label><input type="checkbox" name="anonymize" value="1"> Anonymize secrets in output</label></p>
 
-    <h4>Plugins</h4>
-    <?php if (empty($availablePlugins)): ?>
-    <p><em>No plugins detected on this host.</em></p>
-    <?php else: foreach ($availablePlugins as $p): ?>
-    <label style="display:block">
-      <input type="checkbox" name="plugins[]" value="<?= htmlspecialchars($p['name']) ?>">
-      <?= htmlspecialchars($p['name']) ?>
-    </label>
-    <?php endforeach; endif; ?>
+    <div style="display:flex; gap:32px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:280px;">
+        <h4>Plugins</h4>
+        <?php if (count($pluginCategories) > 1): ?>
+        <select onchange="provFilter(this,'plugin-item')" style="margin-bottom:8px">
+          <option value="">All categories</option>
+          <?php foreach ($pluginCategories as $cat): ?>
+          <option value="<?= htmlspecialchars($cat) ?>"><?= htmlspecialchars($cat) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <?php endif; ?>
+        <div id="plugin-list">
+          <?php if (empty($availablePlugins)): ?>
+          <p><em>No plugins detected on this host.</em></p>
+          <?php else: foreach ($availablePlugins as $p): ?>
+          <label class="plugin-item" data-category="<?= htmlspecialchars($p['category']) ?>" style="display:block">
+            <input type="checkbox" name="plugins[]" value="<?= htmlspecialchars($p['name']) ?>">
+            <?= htmlspecialchars($p['name']) ?>
+            <span style="opacity:0.6">(<?= htmlspecialchars($p['category']) ?>)</span>
+          </label>
+          <?php endforeach; endif; ?>
+        </div>
+      </div>
 
-    <h4>Containers</h4>
-    <?php if (empty($availableContainers)): ?>
-    <p><em>No containers detected on this host.</em></p>
-    <?php else: foreach ($availableContainers as $c): ?>
-    <label style="display:block">
-      <input type="checkbox" name="containers[]" value="<?= htmlspecialchars($c['name']) ?>">
-      <?= htmlspecialchars($c['name']) ?> <span style="opacity:0.7">(<?= htmlspecialchars($c['image']) ?>)</span>
-    </label>
-    <?php endforeach; endif; ?>
+      <div style="flex:1; min-width:280px;">
+        <h4>Containers</h4>
+        <?php if (count($containerCategories) > 1): ?>
+        <select onchange="provFilter(this,'container-item')" style="margin-bottom:8px">
+          <option value="">All categories</option>
+          <?php foreach ($containerCategories as $cat): ?>
+          <option value="<?= htmlspecialchars($cat) ?>"><?= htmlspecialchars($cat) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <?php endif; ?>
+        <div id="container-list">
+          <?php if (empty($availableContainers)): ?>
+          <p><em>No containers detected on this host.</em></p>
+          <?php else: foreach ($availableContainers as $c): ?>
+          <label class="container-item" data-category="<?= htmlspecialchars($c['category']) ?>" style="display:block">
+            <input type="checkbox" name="containers[]" value="<?= htmlspecialchars($c['name']) ?>">
+            <?= htmlspecialchars($c['name']) ?>
+            <span style="opacity:0.6">(<?= htmlspecialchars($c['image']) ?> -- <?= htmlspecialchars($c['category']) ?>)</span>
+          </label>
+          <?php endforeach; endif; ?>
+        </div>
+      </div>
+    </div>
 
     <p><button type="submit">Build profile</button></p>
   </form>
 </div>
+
+<script>
+function provFilter(select, cls) {
+  var val = select.value;
+  document.querySelectorAll('.' + cls).forEach(function (el) {
+    el.style.display = (!val || el.dataset.category === val) ? 'block' : 'none';
+  });
+}
+</script>
 
 <div class="provisioner-section">
   <h2>Import a profile from a URL</h2>
