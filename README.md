@@ -54,6 +54,8 @@ From the **Provisioner** webGui page:
 - **"Build a custom profile"** shows plugins in a left column and containers in a right column, both sorted alphabetically and filterable by category, and lets you pick a subset via checkboxes: only the items you select go into the new profile.
 - Both forms have an **"Anonymize secrets in output"** checkbox. When checked, environment variable values whose key name looks like a secret (password, token, API key, etc.) are replaced with a `CHANGE_ME` placeholder in the saved profile -- useful before committing a profile to a shared/public Git repository. This is a best-effort keyword match on the variable name, not a guarantee; review the output before sharing it.
 - Each row in **"Available profiles"** has a **Download** button (serves the raw JSON via a standalone endpoint, `download-profile.php`) and the profile name itself opens an **in-page preview overlay** (loaded via AJAX from `view-profile.php`, no navigation or extra tab).
+- Plugin and container rows in the picker show a **hover tooltip** with a short description (a container's Community Applications template `Overview` when available, falling back to its image or category) and are sorted alphabetically.
+- The page footer shows the installed plugin's **version, author, and a link to the GitHub repo** (read back from the installed `.plg` metadata, so it never drifts out of sync). The GitHub link also appears on Unraid's Plugins listing page via the `.plg`'s `support` attribute.
 
 The full capture is also available from the CLI:
 

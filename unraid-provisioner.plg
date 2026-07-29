@@ -6,22 +6,22 @@
 <!ENTITY version   "2026.07.28">
 <!ENTITY gitTag     "v&version;">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/Foxy-NC/unraid-provisioner/main/&name;.plg">
+<!ENTITY supportURL "https://github.com/Foxy-NC/unraid-provisioner">
 <!ENTITY txzURL     "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&gitTag;/&name;.txz">
-<!ENTITY txzMD5     "0b289a7dd64c7a2708770802c735db42">
+<!ENTITY txzMD5     "0512ca24099880e98535d468eafac080">
 ]>
 
 <PLUGIN name="&name;"
         author="&author;"
         version="&version;"
         pluginURL="&pluginURL;"
+        support="&supportURL;"
         icon="cubes"
         min="6.12">
 
   <CHANGES>
 ###2026.07.28
-- Initial release: provisioning profiles (plugins + containers),
-  local/URL/Git import, deployment via the docker CLI, autodeploy
-  on first boot.
+- Golden-image provisioning: pick plugins/containers, deploy or autodeploy on first boot.
   </CHANGES>
 
   <!-- Download: fetch the payload, verified against its MD5 -->

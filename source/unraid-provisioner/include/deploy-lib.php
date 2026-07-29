@@ -404,3 +404,47 @@ function provisioner_plugin_category(string $pluginFile): string {
     }
     return 'Uncategorized';
 }
+
+/**
+ * --- Description detection (tooltips only) ---
+ *
+ * Best-effort short description used as a hover tooltip in the webGui's
+ * plugin/container picker lists. Not part of the deployed profile schema.
+ */
+function provisioner_container_description_map(): array {
+    static $map = null;
+    if ($map !== null) {
+        return $map;
+    }
+    $map = [];
+    $templatesDir = '/boot/config/plugins/dockerMan/templates-user';
+    if (is_dir($templatesDir)) {
+        foreach (glob($templatesDir . '/*.xml') as $file) {
+            $xml = @simplexml_load_file($file);
+            if (!$xml) continue;
+            $name = (string)($xml->Name ?? '');
+            if ($name === '') continue;
+            $overview = trim((string)($xml->Overview ?? ''));
+            if ($overview !== '') {
+                $map[$name] = $overview;
+            }
+        }
+    }
+    return $map;
+}
+
+function provisioner_container_description(string $containerName, string $fallback = ''): string {
+    $map = provisioner_container_description_map();
+    return $map[$containerName] ?? $fallback;
+}
+
+function provisioner_plugin_description(string $pluginFile, string $fallback = ''): string {
+    $xml = @simplexml_load_file($pluginFile);
+    if ($xml) {
+        // Non-standard but harmless to check: some .plg authors add a
+        // custom "description" attribute. Most don't, hence the fallback.
+        $desc = trim((string)($xml['description'] ?? ''));
+        if ($desc !== '') return $desc;
+    }
+    return $fallback;
+}

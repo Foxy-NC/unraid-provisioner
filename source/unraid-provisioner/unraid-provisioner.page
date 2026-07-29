@@ -65,6 +65,7 @@ $autodeployActive = is_file(PROVISIONER_AUTODEPLOY_FLAG);
 $availablePlugins = provisioner_exported_plugins();
 foreach ($availablePlugins as &$p) {
     $p['category'] = provisioner_plugin_category("/var/log/plugins/{$p['name']}.plg");
+    $p['description'] = provisioner_plugin_description("/var/log/plugins/{$p['name']}.plg", "Category: {$p['category']}");
 }
 unset($p);
 usort($availablePlugins, fn($a, $b) => strcasecmp($a['name'], $b['name']));
@@ -74,11 +75,19 @@ sort($pluginCategories);
 $availableContainers = provisioner_exported_containers();
 foreach ($availableContainers as &$c) {
     $c['category'] = provisioner_container_category($c['name']);
+    $c['description'] = provisioner_container_description($c['name'], "Image: {$c['image']}");
 }
 unset($c);
 usort($availableContainers, fn($a, $b) => strcasecmp($a['name'], $b['name']));
 $containerCategories = array_values(array_unique(array_column($availableContainers, 'category')));
 sort($containerCategories);
+
+// Read version/author back from the installed plugin metadata (kept in
+// sync automatically -- no need to duplicate the values from the .plg).
+$pluginMeta = @simplexml_load_file('/var/log/plugins/unraid-provisioner.plg');
+$pluginVersion = (string)($pluginMeta['version'] ?? 'unknown');
+$pluginAuthor = (string)($pluginMeta['author'] ?? 'unknown');
+$pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 ?>
 
 <style>
@@ -181,7 +190,7 @@ sort($containerCategories);
           <?php if (empty($availablePlugins)): ?>
           <p><em>No plugins detected on this host.</em></p>
           <?php else: foreach ($availablePlugins as $p): ?>
-          <label class="plugin-item" data-category="<?= htmlspecialchars($p['category']) ?>" style="display:block">
+          <label class="plugin-item" data-category="<?= htmlspecialchars($p['category']) ?>" style="display:block" title="<?= htmlspecialchars($p['description']) ?>">
             <input type="checkbox" name="plugins[]" value="<?= htmlspecialchars($p['name']) ?>">
             <?= htmlspecialchars($p['name']) ?>
             <span style="opacity:0.6">(<?= htmlspecialchars($p['category']) ?>)</span>
@@ -204,7 +213,7 @@ sort($containerCategories);
           <?php if (empty($availableContainers)): ?>
           <p><em>No containers detected on this host.</em></p>
           <?php else: foreach ($availableContainers as $c): ?>
-          <label class="container-item" data-category="<?= htmlspecialchars($c['category']) ?>" style="display:block">
+          <label class="container-item" data-category="<?= htmlspecialchars($c['category']) ?>" style="display:block" title="<?= htmlspecialchars($c['description']) ?>">
             <input type="checkbox" name="containers[]" value="<?= htmlspecialchars($c['name']) ?>">
             <?= htmlspecialchars($c['name']) ?>
             <span style="opacity:0.6">(<?= htmlspecialchars($c['image']) ?> -- <?= htmlspecialchars($c['category']) ?>)</span>
@@ -284,3 +293,11 @@ function provisionerCloseOverlay() {
   document.getElementById('provisioner-overlay').style.display = 'none';
 }
 </script>
+
+<footer style="margin-top:32px; padding-top:12px; border-top:1px solid #444; font-size:0.85em; opacity:0.7;">
+  unraid-provisioner v<?= htmlspecialchars($pluginVersion) ?>
+  &mdash; by <?= htmlspecialchars($pluginAuthor) ?>
+  <?php if ($pluginSupportUrl): ?>
+  &mdash; <a href="<?= htmlspecialchars($pluginSupportUrl) ?>" target="_blank">GitHub</a>
+  <?php endif; ?>
+</footer>
