@@ -29,7 +29,7 @@
   <!-- Download: fetch the payload, verified against its MD5.
        Always pulled from the master branch's current content rather than
        a versioned Release, so updating just means committing a new .txz
-       to master -- no tag/release bump needed for the download itself. -->
+       to master; no tag/release bump needed for the download itself. -->
   <FILE Name="/boot/config/plugins/&name;/&name;.txz">
     <URL>https://raw.githubusercontent.com/&github;/master/&name;.txz</URL>
     <MD5>&MD5;</MD5>
