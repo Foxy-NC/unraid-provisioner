@@ -9,7 +9,7 @@
 <!ENTITY pluginURL  "https://raw.githubusercontent.com/&github;/master/&name;.plg">
 <!ENTITY supportURL "https://github.com/&github;">
 <!ENTITY iconURL    "unraid-provisioner.png">
-<!ENTITY MD5        "ec244a13b22f7bb5ee279156674fe8db">
+<!ENTITY MD5        "3dae89094f633707e95e34c402eb7090">
 ]>
 
 <PLUGIN name="&name;"

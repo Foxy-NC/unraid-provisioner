@@ -1,6 +1,6 @@
 Menu="Utilities"
 Title="Provisioner"
-Icon="server"
+Icon="unraid-provisioner.png"
 ---
 <?php
 $var = @parse_ini_file('/var/local/emhttp/var.ini');
