@@ -9,6 +9,7 @@
 <!ENTITY pluginURL  "https://raw.githubusercontent.com/&github;/master/&name;.plg">
 <!ENTITY supportURL "https://github.com/&github;">
 <!ENTITY iconURL    "unraid-provisioner.png">
+<!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
 <!ENTITY MD5        "a027c41746caa7909d2325edf625972b">
 ]>
 
@@ -26,6 +27,14 @@ Provision Unraid servers from reusable plugin+container profiles.
 ###2026.07.28
 - Initial release.
   </CHANGES>
+
+<FILE Name="&emhttp;/README.md">
+<INLINE>
+**UNRAID Provisioner**
+
+Deploy turnkey servers from **profiles** describing which plugins and Docker containers to install — manually or automatically on the first boot of the array.
+</INLINE>
+</FILE>
 
   <!-- Download: fetch the payload, verified against its MD5.
        Always pulled from the master branch's current content rather than
