@@ -19,7 +19,6 @@
         support="&supportURL;"
         icon="&iconURL;"
         launch="&launch;"
-        description="Provision Unraid servers from reusable plugin+container profiles."
         min="6.12">
 
   <CHANGES>
