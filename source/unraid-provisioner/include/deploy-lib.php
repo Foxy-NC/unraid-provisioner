@@ -203,10 +203,18 @@ function provisioner_deploy_profile(array $profile): void {
  * tweaks made outside a profile, and plugin URLs aren't always
  * recoverable from the host alone.
  */
+// Core system entries installed the same way as plugins (via /var/log/plugins/*.plg)
+// but that aren't really optional software to provision -- excluded from
+// every plugin listing/picker.
+const PROVISIONER_EXCLUDED_PLUGINS = ['unRAIDServer'];
+
 function provisioner_exported_plugins(): array {
     $plugins = [];
     foreach (glob('/var/log/plugins/*.plg') as $file) {
         $pluginName = basename($file, '.plg');
+        if (in_array($pluginName, PROVISIONER_EXCLUDED_PLUGINS, true)) {
+            continue;
+        }
         $xml = @simplexml_load_file($file);
         $url = (string)($xml['pluginURL'] ?? '');
         $plugins[] = ['name' => $pluginName, 'url' => $url ?: "REPLACE_WITH_ACTUAL_URL_FOR_{$pluginName}"];
