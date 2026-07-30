@@ -12,6 +12,7 @@ if (!is_dir(PROVISIONER_BASE)) {
 }
 
 $message = '';
+$messageType = 'success';
 
 // Handle form actions.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -55,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 . count($profile['containers']) . " container(s).";
         }
     } catch (Throwable $e) {
+        $messageType = 'error';
         $message = 'Error: ' . htmlspecialchars($e->getMessage());
     }
 }
@@ -69,8 +71,11 @@ foreach ($availablePlugins as &$p) {
 }
 unset($p);
 usort($availablePlugins, fn($a, $b) => strcasecmp($a['name'], $b['name']));
-$pluginCategories = array_values(array_unique(array_column($availablePlugins, 'category')));
-sort($pluginCategories);
+$pluginsByCategory = [];
+foreach ($availablePlugins as $p) {
+    $pluginsByCategory[$p['category']][] = $p;
+}
+ksort($pluginsByCategory);
 
 $availableContainers = provisioner_exported_containers();
 foreach ($availableContainers as &$c) {
@@ -79,8 +84,11 @@ foreach ($availableContainers as &$c) {
 }
 unset($c);
 usort($availableContainers, fn($a, $b) => strcasecmp($a['name'], $b['name']));
-$containerCategories = array_values(array_unique(array_column($availableContainers, 'category')));
-sort($containerCategories);
+$containersByCategory = [];
+foreach ($availableContainers as $c) {
+    $containersByCategory[$c['category']][] = $c;
+}
+ksort($containersByCategory);
 
 // Read version/author back from the installed plugin metadata (kept in
 // sync automatically -- no need to duplicate the values from the .plg).
@@ -91,10 +99,77 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 ?>
 
 <style>
-.provisioner-section { margin-bottom: 24px; }
-.provisioner-table { width: 100%; border-collapse: collapse; }
-.provisioner-table th, .provisioner-table td { padding: 6px 10px; border-bottom: 1px solid #444; text-align: left; }
-.provisioner-msg { padding: 8px; margin-bottom: 16px; background: #2a2a2a; border-left: 3px solid #6a9; }
+.prov-card {
+  background: var(--gray-100, #22252b);
+  border: 1px solid var(--gray-300, #3a3e46);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.prov-card h2 {
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.15em;
+}
+.prov-table { width: 100%; border-collapse: collapse; }
+.prov-table th, .prov-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gray-300, #3a3e46);
+  text-align: left;
+}
+.prov-table tr:nth-child(even) { background: var(--gray-200, rgba(255,255,255,0.03)); }
+.prov-msg {
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  border-radius: 6px;
+  border-left: 4px solid;
+}
+.prov-msg.success { background: var(--green-100, rgba(76,175,80,0.12)); border-color: var(--green-500, #4caf50); }
+.prov-msg.error   { background: var(--red-100, rgba(224,75,75,0.12));   border-color: var(--red-500, #e04b4b); }
+.prov-field { display: inline-block; margin: 0 10px 10px 0; vertical-align: top; }
+.prov-field label { display: block; font-size: 0.8em; opacity: 0.7; margin-bottom: 3px; }
+.prov-toolbar { display: flex; gap: 10px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+.prov-toolbar input[type=text] { flex: 1; min-width: 160px; }
+.prov-toolbar a { white-space: nowrap; }
+.prov-selected-count { margin-left: auto; opacity: 0.7; font-size: 0.9em; }
+.prov-scroll-list {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--gray-300, #3a3e46);
+  border-radius: 6px;
+  padding: 10px;
+}
+.prov-scroll-list details { margin-bottom: 8px; }
+.prov-scroll-list summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.prov-item { display: block; padding: 3px 0 3px 20px; }
+.prov-actions-menu { position: relative; display: inline-block; }
+.prov-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background: var(--gray-100, #22252b);
+  border: 1px solid var(--gray-300, #3a3e46);
+  border-radius: 6px;
+  z-index: 20;
+  min-width: 190px;
+  overflow: hidden;
+}
+.prov-dropdown.open { display: block; }
+.prov-dropdown form, .prov-dropdown a { display: block; margin: 0; }
+.prov-dropdown button, .prov-dropdown a {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 9px 14px;
+  cursor: pointer;
+  color: inherit;
+  box-sizing: border-box;
+}
+.prov-dropdown button:hover, .prov-dropdown a:hover { background: var(--gray-300, rgba(255,255,255,0.08)); }
 </style>
 
 <h1 style="display:flex; align-items:center; gap:12px;">
@@ -103,14 +178,14 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 </h1>
 
 <?php if ($message): ?>
-<div class="provisioner-msg"><?= $message ?></div>
+<div class="prov-msg <?= $messageType ?>"><?= $message ?></div>
 <?php endif; ?>
 
-<div class="provisioner-section">
-  <h2>Available profiles</h2>
-  <table class="provisioner-table">
-    <tr><th>Name</th><th>Version</th><th>Source</th><th>Plugins</th><th>Containers</th><th>Actions</th></tr>
-    <?php foreach ($profiles as $p): $token = base64_encode($p['path']); ?>
+<div class="prov-card">
+  <h2><i class="fa fa-list-ul"></i> Available profiles</h2>
+  <table class="prov-table">
+    <tr><th>Name</th><th>Version</th><th>Source</th><th>Plugins</th><th>Containers</th><th></th></tr>
+    <?php foreach ($profiles as $i => $p): $token = base64_encode($p['path']); $menuId = 'prov-menu-' . $i; ?>
     <tr>
       <td><a href="#" onclick="provisionerViewProfile('<?= urlencode($token) ?>', '<?= htmlspecialchars($p['name'], ENT_QUOTES) ?>'); return false;" title="Preview JSON"><?= htmlspecialchars($p['name']) ?></a></td>
       <td><?= htmlspecialchars($p['version']) ?></td>
@@ -118,19 +193,24 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
       <td><?= count($p['plugins']) ?></td>
       <td><?= count($p['containers']) ?></td>
       <td>
-        <form method="post" style="display:inline">
-          <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
-          <input type="hidden" name="action" value="deploy_now">
-          <input type="hidden" name="profile_path" value="<?= htmlspecialchars($p['path']) ?>">
-          <button type="submit">Deploy now</button>
-        </form>
-        <form method="post" style="display:inline">
-          <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
-          <input type="hidden" name="action" value="set_autodeploy">
-          <input type="hidden" name="profile_path" value="<?= htmlspecialchars($p['path']) ?>">
-          <button type="submit">Set as first-boot profile</button>
-        </form>
-        <a href="/plugins/unraid-provisioner/download-profile.php?token=<?= urlencode($token) ?>"><button type="button">Download</button></a>
+        <div class="prov-actions-menu">
+          <button type="button" onclick="provisionerToggleMenu('<?= $menuId ?>')">Actions &#9662;</button>
+          <div class="prov-dropdown" id="<?= $menuId ?>">
+            <form method="post">
+              <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
+              <input type="hidden" name="action" value="deploy_now">
+              <input type="hidden" name="profile_path" value="<?= htmlspecialchars($p['path']) ?>">
+              <button type="submit">Deploy now</button>
+            </form>
+            <form method="post">
+              <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
+              <input type="hidden" name="action" value="set_autodeploy">
+              <input type="hidden" name="profile_path" value="<?= htmlspecialchars($p['path']) ?>">
+              <button type="submit">Set as first-boot profile</button>
+            </form>
+            <a href="/plugins/unraid-provisioner/download-profile.php?token=<?= urlencode($token) ?>">Download</a>
+          </div>
+        </div>
       </td>
     </tr>
     <?php endforeach; ?>
@@ -140,89 +220,94 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
   </table>
 </div>
 
-<div class="provisioner-section">
-  <h2>Autodeploy on first boot</h2>
+<div class="prov-card">
+  <h2><i class="fa fa-clock-o"></i> Autodeploy on first boot</h2>
   <p>Status: <strong><?= $autodeployActive ? 'Active' : 'Inactive' ?></strong></p>
   <?php if ($autodeployActive): ?>
   <form method="post">
-          <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
+    <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
     <input type="hidden" name="action" value="clear_autodeploy">
     <button type="submit">Disable autodeploy</button>
   </form>
   <?php endif; ?>
 </div>
 
-<div class="provisioner-section">
-  <h2>Generate a profile from this server</h2>
+<div class="prov-card">
+  <h2><i class="fa fa-magic"></i> Generate a profile from this server</h2>
   <p><em>Captures currently installed plugins and running containers into a new profile. Review the result before deploying it elsewhere -- plugin URLs and container settings are captured best-effort from the live host.</em></p>
   <form method="post">
-          <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
+    <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
     <input type="hidden" name="action" value="export_profile">
     <p>
-      <input type="text" name="export_name" placeholder="profile-name" style="width:200px" required>
-      <input type="text" name="export_description" placeholder="Description (optional)" style="width:300px">
-      <button type="submit">Generate profile</button>
+      <span class="prov-field"><label>Profile name</label><input type="text" name="export_name" placeholder="e.g. media-server-standard" style="width:200px" required></span>
+      <span class="prov-field"><label>Description</label><input type="text" name="export_description" placeholder="Optional" style="width:300px"></span>
+      <span class="prov-field"><label>&nbsp;</label><button type="submit">Generate profile</button></span>
     </p>
     <p><label><input type="checkbox" name="anonymize" value="1"> Anonymize secrets in output</label></p>
   </form>
 </div>
 
-<div class="provisioner-section">
-  <h2>Build a custom profile</h2>
+<div class="prov-card">
+  <h2><i class="fa fa-sliders"></i> Build a custom profile</h2>
   <p><em>Pick which of this host's installed plugins and existing containers should be included in a new profile.</em></p>
   <form method="post">
-          <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
+    <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
     <input type="hidden" name="action" value="build_profile">
     <p>
-      <input type="text" name="build_name" placeholder="profile-name" style="width:200px" required>
-      <input type="text" name="build_description" placeholder="Description (optional)" style="width:300px">
-      <button type="submit">Build profile</button>
+      <span class="prov-field"><label>Profile name</label><input type="text" name="build_name" placeholder="e.g. media-server-standard" style="width:200px" required></span>
+      <span class="prov-field"><label>Description</label><input type="text" name="build_description" placeholder="Optional" style="width:300px"></span>
+      <span class="prov-field"><label>&nbsp;</label><button type="submit">Build profile</button></span>
     </p>
     <p><label><input type="checkbox" name="anonymize" value="1"> Anonymize secrets in output</label></p>
 
     <div style="display:flex; gap:32px; flex-wrap:wrap;">
-      <div style="flex:1; min-width:280px;">
+      <div style="flex:1; min-width:300px;">
         <h4 style="display:flex; justify-content:space-between;"><span>Plugins</span><span><?= count($availablePlugins) ?></span></h4>
-        <?php if (count($pluginCategories) > 1): ?>
-        <select onchange="provFilter(this,'plugin-item')" style="margin-bottom:8px">
-          <option value="">All categories</option>
-          <?php foreach ($pluginCategories as $cat): ?>
-          <option value="<?= htmlspecialchars($cat) ?>"><?= htmlspecialchars($cat) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <?php endif; ?>
-        <div id="plugin-list">
+        <div class="prov-toolbar">
+          <input type="text" placeholder="Search plugins..." oninput="provisionerSearch(this,'plugin-item','plugin-group')">
+          <a href="#" onclick="provisionerToggleAll('plugin-item', true); provisionerUpdateCount('plugin-item','plugin-selected'); return false;">All</a>
+          <a href="#" onclick="provisionerToggleAll('plugin-item', false); provisionerUpdateCount('plugin-item','plugin-selected'); return false;">None</a>
+          <span class="prov-selected-count" id="plugin-selected">0 selected</span>
+        </div>
+        <div class="prov-scroll-list">
           <?php if (empty($availablePlugins)): ?>
           <p><em>No plugins detected on this host.</em></p>
-          <?php else: foreach ($availablePlugins as $p): ?>
-          <label class="plugin-item" data-category="<?= htmlspecialchars($p['category']) ?>" style="display:block" title="<?= htmlspecialchars($p['description']) ?>">
-            <input type="checkbox" name="plugins[]" value="<?= htmlspecialchars($p['name']) ?>">
-            <?= htmlspecialchars($p['name']) ?>
-            <span style="opacity:0.6">(<?= htmlspecialchars($p['category']) ?>)</span>
-          </label>
+          <?php else: foreach ($pluginsByCategory as $cat => $items): ?>
+          <details open class="plugin-group">
+            <summary><?= htmlspecialchars($cat) ?> (<?= count($items) ?>)</summary>
+            <?php foreach ($items as $p): ?>
+            <label class="prov-item plugin-item" data-search="<?= htmlspecialchars(strtolower($p['name'])) ?>" title="<?= htmlspecialchars($p['description']) ?>">
+              <input type="checkbox" name="plugins[]" value="<?= htmlspecialchars($p['name']) ?>" onchange="provisionerUpdateCount('plugin-item','plugin-selected')">
+              <?= htmlspecialchars($p['name']) ?>
+            </label>
+            <?php endforeach; ?>
+          </details>
           <?php endforeach; endif; ?>
         </div>
       </div>
 
-      <div style="flex:1; min-width:280px;">
+      <div style="flex:1; min-width:300px;">
         <h4 style="display:flex; justify-content:space-between;"><span>Containers</span><span><?= count($availableContainers) ?></span></h4>
-        <?php if (count($containerCategories) > 1): ?>
-        <select onchange="provFilter(this,'container-item')" style="margin-bottom:8px">
-          <option value="">All categories</option>
-          <?php foreach ($containerCategories as $cat): ?>
-          <option value="<?= htmlspecialchars($cat) ?>"><?= htmlspecialchars($cat) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <?php endif; ?>
-        <div id="container-list">
+        <div class="prov-toolbar">
+          <input type="text" placeholder="Search containers..." oninput="provisionerSearch(this,'container-item','container-group')">
+          <a href="#" onclick="provisionerToggleAll('container-item', true); provisionerUpdateCount('container-item','container-selected'); return false;">All</a>
+          <a href="#" onclick="provisionerToggleAll('container-item', false); provisionerUpdateCount('container-item','container-selected'); return false;">None</a>
+          <span class="prov-selected-count" id="container-selected">0 selected</span>
+        </div>
+        <div class="prov-scroll-list">
           <?php if (empty($availableContainers)): ?>
           <p><em>No containers detected on this host.</em></p>
-          <?php else: foreach ($availableContainers as $c): ?>
-          <label class="container-item" data-category="<?= htmlspecialchars($c['category']) ?>" style="display:block" title="<?= htmlspecialchars($c['description']) ?>">
-            <input type="checkbox" name="containers[]" value="<?= htmlspecialchars($c['name']) ?>">
-            <?= htmlspecialchars($c['name']) ?>
-            <span style="opacity:0.6">(<?= htmlspecialchars($c['image']) ?> -- <?= htmlspecialchars($c['category']) ?>)</span>
-          </label>
+          <?php else: foreach ($containersByCategory as $cat => $items): ?>
+          <details open class="container-group">
+            <summary><?= htmlspecialchars($cat) ?> (<?= count($items) ?>)</summary>
+            <?php foreach ($items as $c): ?>
+            <label class="prov-item container-item" data-search="<?= htmlspecialchars(strtolower($c['name'] . ' ' . $c['image'])) ?>" title="<?= htmlspecialchars($c['description']) ?>">
+              <input type="checkbox" name="containers[]" value="<?= htmlspecialchars($c['name']) ?>" onchange="provisionerUpdateCount('container-item','container-selected')">
+              <?= htmlspecialchars($c['name']) ?>
+              <span style="opacity:0.6">(<?= htmlspecialchars($c['image']) ?>)</span>
+            </label>
+            <?php endforeach; ?>
+          </details>
           <?php endforeach; endif; ?>
         </div>
       </div>
@@ -230,32 +315,23 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
   </form>
 </div>
 
-<script>
-function provFilter(select, cls) {
-  var val = select.value;
-  document.querySelectorAll('.' + cls).forEach(function (el) {
-    el.style.display = (!val || el.dataset.category === val) ? 'block' : 'none';
-  });
-}
-</script>
-
-<div class="provisioner-section">
-  <h2>Import a profile from a URL</h2>
+<div class="prov-card">
+  <h2><i class="fa fa-cloud-download"></i> Import a profile from a URL</h2>
   <form method="post">
-          <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
+    <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
     <input type="hidden" name="action" value="import_url">
-    <input type="text" name="url" placeholder="https://.../profile.json" style="width:400px">
-    <button type="submit">Import</button>
+    <span class="prov-field"><label>Profile URL</label><input type="text" name="url" placeholder="https://.../profile.json" style="width:400px"></span>
+    <span class="prov-field"><label>&nbsp;</label><button type="submit">Import</button></span>
   </form>
 </div>
 
-<div class="provisioner-section">
-  <h2>Sync a profile library (Git repository)</h2>
+<div class="prov-card">
+  <h2><i class="fa fa-code-fork"></i> Sync a profile library (Git repository)</h2>
   <form method="post">
-          <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
+    <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
     <input type="hidden" name="action" value="sync_git">
-    <input type="text" name="repo_url" placeholder="https://github.com/org/profiles-repo.git" style="width:400px">
-    <button type="submit">Sync</button>
+    <span class="prov-field"><label>Repository URL</label><input type="text" name="repo_url" placeholder="https://github.com/org/profiles-repo.git" style="width:400px"></span>
+    <span class="prov-field"><label>&nbsp;</label><button type="submit">Sync</button></span>
   </form>
   <p><em>The repository must contain profiles under <code>profiles/*.json</code>.</em></p>
 </div>
@@ -264,12 +340,12 @@ function provFilter(select, cls) {
      away from the plugin page (avoids Unraid's "External Link" prompt and
      the extra tab that came with a plain <a href> to a different path). -->
 <div id="provisioner-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999;">
-  <div style="background:#1a1a1a; border:1px solid #555; max-width:800px; margin:60px auto; padding:20px; max-height:80vh; display:flex; flex-direction:column;">
+  <div style="background: var(--gray-100, #22252b); border:1px solid var(--gray-300, #3a3e46); max-width:800px; margin:60px auto; padding:20px; max-height:80vh; display:flex; flex-direction:column; border-radius:8px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <h3 id="provisioner-overlay-title" style="margin:0;"></h3>
       <button type="button" onclick="provisionerCloseOverlay()">Close</button>
     </div>
-    <pre id="provisioner-overlay-content" style="background:#111; padding:12px; overflow:auto; border:1px solid #444; flex:1;"></pre>
+    <pre id="provisioner-overlay-content" style="background: var(--gray-200, rgba(0,0,0,0.3)); padding:12px; overflow:auto; border:1px solid var(--gray-300, #3a3e46); border-radius:6px; flex:1;"></pre>
   </div>
 </div>
 
@@ -297,9 +373,51 @@ function provisionerViewProfile(token, name) {
 function provisionerCloseOverlay() {
   document.getElementById('provisioner-overlay').style.display = 'none';
 }
+
+function provisionerSearch(input, itemClass, groupClass) {
+  var q = input.value.toLowerCase();
+  document.querySelectorAll('.' + itemClass).forEach(function (el) {
+    var match = !q || (el.dataset.search || '').indexOf(q) !== -1;
+    el.style.display = match ? 'block' : 'none';
+  });
+  document.querySelectorAll('.' + groupClass).forEach(function (group) {
+    var anyVisible = Array.prototype.some.call(group.querySelectorAll('.' + itemClass), function (el) {
+      return el.style.display !== 'none';
+    });
+    group.style.display = anyVisible ? '' : 'none';
+  });
+}
+
+function provisionerToggleAll(itemClass, checked) {
+  document.querySelectorAll('.' + itemClass).forEach(function (el) {
+    if (el.style.display !== 'none') {
+      var cb = el.querySelector('input[type=checkbox]');
+      if (cb) cb.checked = checked;
+    }
+  });
+}
+
+function provisionerUpdateCount(itemClass, countId) {
+  var n = document.querySelectorAll('.' + itemClass + ' input[type=checkbox]:checked').length;
+  var el = document.getElementById(countId);
+  if (el) el.textContent = n + ' selected';
+}
+
+function provisionerToggleMenu(id) {
+  document.querySelectorAll('.prov-dropdown.open').forEach(function (el) {
+    if (el.id !== id) el.classList.remove('open');
+  });
+  var el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.prov-actions-menu')) {
+    document.querySelectorAll('.prov-dropdown.open').forEach(function (el) { el.classList.remove('open'); });
+  }
+});
 </script>
 
-<footer style="margin-top:32px; padding-top:12px; border-top:1px solid #444; font-size:0.85em; opacity:0.7; text-align:center;">
+<footer style="margin-top:32px; padding-top:12px; border-top:1px solid var(--gray-300, #3a3e46); font-size:0.85em; opacity:0.7; text-align:center;">
   unraid-provisioner v<?= htmlspecialchars($pluginVersion) ?>
   &mdash; by <?= htmlspecialchars($pluginAuthor) ?>
   <?php if ($pluginSupportUrl): ?>
