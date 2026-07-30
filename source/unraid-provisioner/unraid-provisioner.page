@@ -1,6 +1,6 @@
 Menu="Utilities"
 Title="Provisioner"
-Icon="cubes"
+Icon="server"
 ---
 <?php
 $var = @parse_ini_file('/var/local/emhttp/var.ini');
