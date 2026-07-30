@@ -97,7 +97,10 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 .provisioner-msg { padding: 8px; margin-bottom: 16px; background: #2a2a2a; border-left: 3px solid #6a9; }
 </style>
 
-<h1>Unraid Provisioner</h1>
+<h1 style="display:flex; align-items:center; gap:12px;">
+  <img src="/plugins/unraid-provisioner/unraid-provisioner.png" alt="" style="width:40px; height:40px;">
+  Unraid Provisioner
+</h1>
 
 <?php if ($message): ?>
 <div class="provisioner-msg"><?= $message ?></div>
@@ -155,10 +158,12 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
   <form method="post">
           <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
     <input type="hidden" name="action" value="export_profile">
-    <input type="text" name="export_name" placeholder="profile-name" style="width:200px" required>
-    <input type="text" name="export_description" placeholder="Description (optional)" style="width:300px">
-    <label><input type="checkbox" name="anonymize" value="1"> Anonymize secrets in output</label>
-    <button type="submit">Generate profile</button>
+    <p>
+      <input type="text" name="export_name" placeholder="profile-name" style="width:200px" required>
+      <input type="text" name="export_description" placeholder="Description (optional)" style="width:300px">
+      <button type="submit">Generate profile</button>
+    </p>
+    <p><label><input type="checkbox" name="anonymize" value="1"> Anonymize secrets in output</label></p>
   </form>
 </div>
 
@@ -177,7 +182,7 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 
     <div style="display:flex; gap:32px; flex-wrap:wrap;">
       <div style="flex:1; min-width:280px;">
-        <h4>Plugins</h4>
+        <h4 style="display:flex; justify-content:space-between;"><span>Plugins</span><span><?= count($availablePlugins) ?></span></h4>
         <?php if (count($pluginCategories) > 1): ?>
         <select onchange="provFilter(this,'plugin-item')" style="margin-bottom:8px">
           <option value="">All categories</option>
@@ -200,7 +205,7 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
       </div>
 
       <div style="flex:1; min-width:280px;">
-        <h4>Containers</h4>
+        <h4 style="display:flex; justify-content:space-between;"><span>Containers</span><span><?= count($availableContainers) ?></span></h4>
         <?php if (count($containerCategories) > 1): ?>
         <select onchange="provFilter(this,'container-item')" style="margin-bottom:8px">
           <option value="">All categories</option>
@@ -294,7 +299,7 @@ function provisionerCloseOverlay() {
 }
 </script>
 
-<footer style="margin-top:32px; padding-top:12px; border-top:1px solid #444; font-size:0.85em; opacity:0.7;">
+<footer style="margin-top:32px; padding-top:12px; border-top:1px solid #444; font-size:0.85em; opacity:0.7; text-align:center;">
   unraid-provisioner v<?= htmlspecialchars($pluginVersion) ?>
   &mdash; by <?= htmlspecialchars($pluginAuthor) ?>
   <?php if ($pluginSupportUrl): ?>
