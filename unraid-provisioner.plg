@@ -22,8 +22,9 @@
         min="6.12">
 
   <CHANGES>
+Provision Unraid servers from reusable plugin+container profiles.
 ###2026.07.28
-- Provision Unraid servers from reusable plugin+container profiles.
+- Initial release.
   </CHANGES>
 
   <!-- Download: fetch the payload, verified against its MD5.
