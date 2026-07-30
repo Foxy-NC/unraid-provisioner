@@ -7,6 +7,37 @@ $var = @parse_ini_file('/var/local/emhttp/var.ini');
 $csrfToken = $var['csrf_token'] ?? '';
 require_once '/usr/local/emhttp/plugins/unraid-provisioner/include/deploy-lib.php';
 
+// Unraid exports $theme in .page context (one of white/black/gray/azure).
+// The --gray-100..900 CSS variables are fixed foundational values, NOT
+// theme-adaptive, so picking concrete colors per theme group here is the
+// reliable approach rather than hoping a CSS var() inverts correctly.
+global $theme;
+$isDarkTheme = in_array($theme ?? '', ['black', 'gray'], true);
+
+if ($isDarkTheme) {
+    $provBg      = '#22252b';
+    $provBorder  = '#3a3e46';
+    $provRowAlt  = 'rgba(255,255,255,0.03)';
+    $provMsgOkBg = 'rgba(76,175,80,0.15)';
+    $provMsgOkBd = '#4caf50';
+    $provMsgErrBg = 'rgba(224,75,75,0.15)';
+    $provMsgErrBd = '#e04b4b';
+    $provDropdownHover = 'rgba(255,255,255,0.08)';
+    $provPre     = 'rgba(0,0,0,0.35)';
+    $provOverlayBg = 'rgba(0,0,0,0.7)';
+} else {
+    $provBg      = '#ffffff';
+    $provBorder  = '#d4d6da';
+    $provRowAlt  = 'rgba(0,0,0,0.03)';
+    $provMsgOkBg = '#e6f4ea';
+    $provMsgOkBd = '#2e7d32';
+    $provMsgErrBg = '#fbe9e7';
+    $provMsgErrBd = '#c62828';
+    $provDropdownHover = 'rgba(0,0,0,0.06)';
+    $provPre     = '#f2f2f2';
+    $provOverlayBg = 'rgba(0,0,0,0.5)';
+}
+
 if (!is_dir(PROVISIONER_BASE)) {
     mkdir(PROVISIONER_BASE, 0755, true);
 }
@@ -99,9 +130,13 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 ?>
 
 <style>
+/* Concrete per-theme colors computed in PHP above ($isDarkTheme), rather
+   than CSS var() names that don't reliably exist/adapt across Unraid's
+   White/Black/Azure/Gray themes, and rather than translucent overlays
+   alone (too low-contrast on some theme/background combinations). */
 .prov-card {
-  background: var(--gray-100, #22252b);
-  border: 1px solid var(--gray-300, #3a3e46);
+  background: <?= $provBg ?>;
+  border: 1px solid <?= $provBorder ?>;
   border-radius: 8px;
   padding: 16px 20px;
   margin-bottom: 20px;
@@ -113,22 +148,23 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
   gap: 8px;
   font-size: 1.15em;
 }
-.prov-table { width: 100%; border-collapse: collapse; }
+.prov-table-wrap { overflow-x: auto; }
+.prov-table { width: 100%; border-collapse: collapse; min-width: 480px; }
 .prov-table th, .prov-table td {
   padding: 8px 10px;
-  border-bottom: 1px solid var(--gray-300, #3a3e46);
+  border-bottom: 1px solid <?= $provBorder ?>;
   text-align: left;
 }
-.prov-table tr:nth-child(even) { background: var(--gray-200, rgba(255,255,255,0.03)); }
+.prov-table tr:nth-child(even) { background: <?= $provRowAlt ?>; }
 .prov-msg {
   padding: 10px 14px;
   margin-bottom: 20px;
   border-radius: 6px;
   border-left: 4px solid;
 }
-.prov-msg.success { background: var(--green-100, rgba(76,175,80,0.12)); border-color: var(--green-500, #4caf50); }
-.prov-msg.error   { background: var(--red-100, rgba(224,75,75,0.12));   border-color: var(--red-500, #e04b4b); }
-.prov-field { display: inline-block; margin: 0 10px 10px 0; vertical-align: top; }
+.prov-msg.success { background: <?= $provMsgOkBg ?>;  border-color: <?= $provMsgOkBd ?>; }
+.prov-msg.error   { background: <?= $provMsgErrBg ?>; border-color: <?= $provMsgErrBd ?>; }
+.prov-field { display: inline-block; margin: 0 10px 10px 0; vertical-align: top; max-width: 100%; }
 .prov-field label { display: block; font-size: 0.8em; opacity: 0.7; margin-bottom: 3px; }
 .prov-toolbar { display: flex; gap: 10px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
 .prov-toolbar input[type=text] { flex: 1; min-width: 160px; }
@@ -137,7 +173,7 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 .prov-scroll-list {
   max-height: 420px;
   overflow-y: auto;
-  border: 1px solid var(--gray-300, #3a3e46);
+  border: 1px solid <?= $provBorder ?>;
   border-radius: 6px;
   padding: 10px;
 }
@@ -150,12 +186,13 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
   position: absolute;
   right: 0;
   top: 100%;
-  background: var(--gray-100, #22252b);
-  border: 1px solid var(--gray-300, #3a3e46);
+  background: <?= $provBg ?>;
+  border: 1px solid <?= $provBorder ?>;
   border-radius: 6px;
   z-index: 20;
   min-width: 190px;
   overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
 }
 .prov-dropdown.open { display: block; }
 .prov-dropdown form, .prov-dropdown a { display: block; margin: 0; }
@@ -169,7 +206,21 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
   color: inherit;
   box-sizing: border-box;
 }
-.prov-dropdown button:hover, .prov-dropdown a:hover { background: var(--gray-300, rgba(255,255,255,0.08)); }
+.prov-dropdown button:hover, .prov-dropdown a:hover { background: <?= $provDropdownHover ?>; }
+
+/* Mobile: stack the two-column picker, let fixed-width inputs shrink,
+   and keep the profiles table scrollable instead of squeezed. */
+@media (max-width: 720px) {
+  .prov-two-col { flex-direction: column; }
+  .prov-two-col > div { min-width: 0 !important; width: 100%; }
+  .prov-field { display: block; width: 100%; margin: 0 0 10px 0; }
+  .prov-field input[type=text] { width: 100% !important; box-sizing: border-box; }
+  .prov-card { padding: 12px 14px; }
+  .prov-toolbar { flex-direction: column; align-items: stretch; }
+  .prov-selected-count { margin-left: 0; }
+  h1 { font-size: 1.3em; }
+  #provisioner-overlay > div { margin: 20px 10px !important; max-width: none !important; max-height: 85vh !important; }
+}
 </style>
 
 <h1 style="display:flex; align-items:center; gap:12px;">
@@ -260,7 +311,7 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
     </p>
     <p><label><input type="checkbox" name="anonymize" value="1"> Anonymize secrets in output</label></p>
 
-    <div style="display:flex; gap:32px; flex-wrap:wrap;">
+    <div class="prov-two-col" style="display:flex; gap:32px; flex-wrap:wrap;">
       <div style="flex:1; min-width:300px;">
         <h4 style="display:flex; justify-content:space-between;"><span>Plugins</span><span><?= count($availablePlugins) ?></span></h4>
         <div class="prov-toolbar">
@@ -339,13 +390,13 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 <!-- Preview overlay: loaded via AJAX so viewing a profile never navigates
      away from the plugin page (avoids Unraid's "External Link" prompt and
      the extra tab that came with a plain <a href> to a different path). -->
-<div id="provisioner-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999;">
-  <div style="background: var(--gray-100, #22252b); border:1px solid var(--gray-300, #3a3e46); max-width:800px; margin:60px auto; padding:20px; max-height:80vh; display:flex; flex-direction:column; border-radius:8px;">
+<div id="provisioner-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:<?= $provOverlayBg ?>; z-index:9999;">
+  <div style="background: <?= $provBg ?>; border:1px solid <?= $provBorder ?>; max-width:800px; margin:60px auto; padding:20px; max-height:80vh; display:flex; flex-direction:column; border-radius:8px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <h3 id="provisioner-overlay-title" style="margin:0;"></h3>
       <button type="button" onclick="provisionerCloseOverlay()">Close</button>
     </div>
-    <pre id="provisioner-overlay-content" style="background: var(--gray-200, rgba(0,0,0,0.3)); padding:12px; overflow:auto; border:1px solid var(--gray-300, #3a3e46); border-radius:6px; flex:1;"></pre>
+    <pre id="provisioner-overlay-content" style="background: <?= $provPre ?>; padding:12px; overflow:auto; border:1px solid <?= $provBorder ?>; border-radius:6px; flex:1;"></pre>
   </div>
 </div>
 
@@ -417,7 +468,7 @@ document.addEventListener('click', function (e) {
 });
 </script>
 
-<footer style="margin-top:32px; padding-top:12px; border-top:1px solid var(--gray-300, #3a3e46); font-size:0.85em; opacity:0.7; text-align:center;">
+<footer style="margin-top:32px; padding-top:12px; border-top:1px solid <?= $provBorder ?>; font-size:0.85em; opacity:0.7; text-align:center;">
   unraid-provisioner v<?= htmlspecialchars($pluginVersion) ?>
   &mdash; by <?= htmlspecialchars($pluginAuthor) ?>
   <?php if ($pluginSupportUrl): ?>
