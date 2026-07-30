@@ -4,12 +4,12 @@
 <!ENTITY name      "unraid-provisioner">
 <!ENTITY author    "Foxy-NC">
 <!ENTITY version   "2026.07.28">
-<!ENTITY gitTag     "v&version;">
-<!ENTITY pluginURL "https://raw.githubusercontent.com/Foxy-NC/unraid-provisioner/main/&name;.plg">
-<!ENTITY supportURL "https://github.com/Foxy-NC/unraid-provisioner">
+<!ENTITY github     "&author;/&name;">
+<!ENTITY launch     "Settings/unraid-provisioner">
+<!ENTITY pluginURL  "https://raw.githubusercontent.com/&github;/master/&name;.plg">
+<!ENTITY supportURL "https://github.com/&github;">
 <!ENTITY iconURL    "unraid-provisioner.png">
-<!ENTITY txzURL     "https://github.com/Foxy-NC/unraid-provisioner/releases/download/&gitTag;/&name;.txz">
-<!ENTITY txzMD5     "0512ca24099880e98535d468eafac080">
+<!ENTITY MD5        "ec244a13b22f7bb5ee279156674fe8db">
 ]>
 
 <PLUGIN name="&name;"
@@ -18,17 +18,21 @@
         pluginURL="&pluginURL;"
         support="&supportURL;"
         icon="&iconURL;"
+        launch="&launch;"
         min="6.12">
 
   <CHANGES>
 ###2026.07.28
-- Golden-image provisioning: pick plugins/containers, deploy or autodeploy on first boot.
+- Provision Unraid servers from reusable plugin+container profiles.
   </CHANGES>
 
-  <!-- Download: fetch the payload, verified against its MD5 -->
+  <!-- Download: fetch the payload, verified against its MD5.
+       Always pulled from the master branch's current content rather than
+       a versioned Release, so updating just means committing a new .txz
+       to master -- no tag/release bump needed for the download itself. -->
   <FILE Name="/boot/config/plugins/&name;/&name;.txz">
-    <URL>&txzURL;</URL>
-    <MD5>&txzMD5;</MD5>
+    <URL>https://raw.githubusercontent.com/&github;/master/&name;.txz</URL>
+    <MD5>&MD5;</MD5>
   </FILE>
 
   <!-- Install: unpack the payload (page, include/, scripts/, event/).
