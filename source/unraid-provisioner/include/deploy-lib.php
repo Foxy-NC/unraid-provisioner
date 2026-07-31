@@ -541,7 +541,10 @@ function provisioner_plugin_description(string $pluginFile, string $fallback = '
     $readme = "/usr/local/emhttp/plugins/{$pluginName}/README.md";
     if (is_file($readme)) {
         $desc = provisioner_readme_first_paragraph($readme);
-        if ($desc !== '') return $desc;
+        if ($desc !== '') {
+            $title = provisioner_readme_title($readme);
+            return ($title !== '' ? "{$title}: {$desc}" : $desc);
+        }
     }
     $xml = @simplexml_load_file($pluginFile);
     if ($xml) {
@@ -549,6 +552,30 @@ function provisioner_plugin_description(string $pluginFile, string $fallback = '
         if ($desc !== '') return $desc;
     }
     return $fallback;
+}
+
+function provisioner_readme_title(string $readme): string {
+    $content = @file_get_contents($readme);
+    if ($content === false) {
+        return '';
+    }
+    foreach (preg_split('/\R/', $content) as $raw) {
+        $line = trim($raw);
+        if ($line === '') continue;
+        if (preg_match('/^#+/u', $line)) {
+            $title = preg_replace('/^#+\s*/u', '', $line);
+            $title = preg_replace('/#+\s*$/u', '', $title);
+            return trim($title);
+        }
+        if (preg_match('/^(?:\*\*|__)(.+)(?:\*\*|__)$/u', $line, $m)) {
+            return trim($m[1]);
+        }
+        if (preg_match('/^\*(.+)\*$/u', $line, $m)) {
+            return trim($m[1]);
+        }
+        return '';
+    }
+    return '';
 }
 
 function provisioner_readme_first_paragraph(string $readme): string {
@@ -574,9 +601,11 @@ function provisioner_readme_first_paragraph(string $readme): string {
             $inCode = true;
             continue;
         }
-        if (preg_match('/^#{1,6}\s/u', $line)) continue;
+        if (preg_match('/^#+/u', $line)) continue;
         if (preg_match('/^!\[/u', $line)) continue;
         if (preg_match('/^(?:-{3,}|\*{3,}|_{3,})$/u', $line)) continue;
+        if (preg_match('/^(?:\*\*|__)(.+)(?:\*\*|__)$/u', $line)) continue;
+        if (preg_match('/^\*(.+)\*$/u', $line)) continue;
         $line = preg_replace('/<[^>]+>/u', '', $line);
         $line = preg_replace('/`[^`]*`/u', '', $line);
         $line = preg_replace('/!\[[^\]]*\]\([^)]*\)/u', '', $line);
