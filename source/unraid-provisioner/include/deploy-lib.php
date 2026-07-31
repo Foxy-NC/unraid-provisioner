@@ -350,13 +350,53 @@ function provisioner_build_profile(string $name, string $description, array $sel
  * not a guarantee -- review the output before sharing it.
  */
 function provisioner_looks_like_secret_key(string $key): bool {
-    return (bool)preg_match('/pass|pwd|secret|token|api[_-]?key|auth|credential/i', $key);
+    return (bool)preg_match('/pass|pwd|secret|token|api[_-]?key|auth|credential|claim/i', $key);
+}
+
+/**
+ * Catches sensitive data a key-name check alone misses: the key name is
+ * completely unrelated to "secret" but the VALUE itself is sensitive --
+ * an email address, a connection string with credentials embedded in it
+ * (scheme://user:password@host), a private/loopback IPv4 address, or a
+ * hostname under a known dynamic-DNS provider. Confirmed against a real
+ * export where DATABASE_URL/NETVISOR_DATABASE_URL leaked a live password
+ * this way, SUPERUSER_EMAIL/SMTP_FROM_EMAIL/SMTP_USER leaked real email
+ * addresses, and fields like BASE_URL/SITE_URL/ALLOWED_HOST/ADDR/*_HOSTS
+ * leaked the private LAN IP and a personal DuckDNS subdomain -- none of
+ * those key names matched the secret-key pattern.
+ */
+function provisioner_looks_like_secret_value(string $value): bool {
+    if (preg_match('#://[^/\s:@]+:[^/\s@]+@#', $value)) {
+        return true; // scheme://user:password@host
+    }
+    if (preg_match('/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/', trim($value))) {
+        return true; // bare email address
+    }
+    if (preg_match('#\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|127\.\d{1,3}\.\d{1,3}\.\d{1,3})\b#', $value)) {
+        return true; // private/loopback IPv4 address -- reveals internal network layout
+    }
+    // Common dynamic-DNS providers: a hostname under one of these gives away
+    // the server's real internet-facing address and the owner's chosen
+    // subdomain, even though the key name (BASE_URL, SITE_URL, ALLOWED_HOST,
+    // ADDR, *_HOSTS...) never looks like a "secret".
+    $ddnsProviders = [
+        'duckdns.org', 'no-ip.org', 'no-ip.com', 'no-ip.biz', 'no-ip.info',
+        'ddns.net', 'dynu.com', 'freedns.afraid.org', 'dyndns.org', 'dyn.com',
+        'changeip.com', 'myftp.org', 'servebeer.com', 'sytes.net', 'zapto.org',
+        'hopto.org',
+    ];
+    foreach ($ddnsProviders as $suffix) {
+        if (stripos($value, $suffix) !== false) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function provisioner_anonymize_containers(array $containers): array {
     foreach ($containers as &$c) {
         foreach ($c['env'] ?? [] as $key => $value) {
-            if (provisioner_looks_like_secret_key($key)) {
+            if (provisioner_looks_like_secret_key($key) || provisioner_looks_like_secret_value((string)$value)) {
                 $c['env'][$key] = 'CHANGE_ME';
             }
         }
