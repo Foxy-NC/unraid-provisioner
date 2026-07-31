@@ -567,6 +567,10 @@ function provisioner_readme_title(string $readme): string {
             $title = preg_replace('/#+\s*$/u', '', $title);
             return trim($title);
         }
+        if (preg_match('/^<([a-z][a-z0-9]*)(?:\s[^>]*)?>(.*?)<\/\1>$/iu', $line, $m)) {
+            $title = preg_replace('/<[^>]+>/u', '', $m[2]);
+            return trim($title);
+        }
         if (preg_match('/^(?:\*\*|__)(.+)(?:\*\*|__)$/u', $line, $m)) {
             return trim($m[1]);
         }
@@ -604,6 +608,7 @@ function provisioner_readme_first_paragraph(string $readme): string {
         if (preg_match('/^#+/u', $line)) continue;
         if (preg_match('/^!\[/u', $line)) continue;
         if (preg_match('/^(?:-{3,}|\*{3,}|_{3,})$/u', $line)) continue;
+        if (preg_match('/^<([a-z][a-z0-9]*)(?:\s[^>]*)?>(.*?)<\/\1>$/iu', $line)) continue;
         if (preg_match('/^(?:\*\*|__)(.+)(?:\*\*|__)$/u', $line)) continue;
         if (preg_match('/^\*(.+)\*$/u', $line)) continue;
         $line = preg_replace('/<[^>]+>/u', '', $line);
