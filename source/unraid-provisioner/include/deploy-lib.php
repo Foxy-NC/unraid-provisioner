@@ -561,7 +561,7 @@ function provisioner_readme_title(string $readme): string {
     }
     foreach (preg_split('/\R/', $content) as $raw) {
         $line = trim($raw);
-        if ($line === '') continue;
+        if ($line === '' || strpos($line, '<!--') === 0) continue;
         if (preg_match('/^#+/u', $line)) {
             $title = preg_replace('/^#+\s*/u', '', $line);
             $title = preg_replace('/#+\s*$/u', '', $title);
