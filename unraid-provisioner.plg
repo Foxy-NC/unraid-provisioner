@@ -10,7 +10,7 @@
 <!ENTITY supportURL "https://github.com/&github;">
 <!ENTITY iconURL    "unraid-provisioner.png">
 <!ENTITY emhttp     "/usr/local/emhttp/plugins/&name;">
-<!ENTITY MD5        "15d7cd067d11e01890a6b92ce23bce53">
+<!ENTITY MD5        "c80209533e3b6de2dc40654c19e7383c">
 ]>
 
 <PLUGIN name="&name;"
@@ -25,6 +25,7 @@
   <CHANGES>
 ###2026.07.31
 - Anonymization now also redacts private IPv4 addresses (RFC1918) and scans env values for credentials embedded in connection strings, email addresses and personal DDNS hostnames.
+- Plugin picker hover descriptions are now read from each installed plugin's README.md when present.
 
 ###2026.07.28
 - Initial release.

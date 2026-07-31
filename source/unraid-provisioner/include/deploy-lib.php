@@ -534,12 +534,67 @@ function provisioner_container_description(string $containerName, string $fallba
 }
 
 function provisioner_plugin_description(string $pluginFile, string $fallback = ''): string {
+    // Installed plugins carry their description in a README.md rendered on
+    // the Plugins page; that is the most reliable text source. Fall back to
+    // a non-standard <description> attribute, then to $fallback.
+    $pluginName = basename($pluginFile, '.plg');
+    $readme = "/usr/local/emhttp/plugins/{$pluginName}/README.md";
+    if (is_file($readme)) {
+        $desc = provisioner_readme_first_paragraph($readme);
+        if ($desc !== '') return $desc;
+    }
     $xml = @simplexml_load_file($pluginFile);
     if ($xml) {
-        // Non-standard but harmless to check: some .plg authors add a
-        // custom "description" attribute. Most don't, hence the fallback.
         $desc = trim((string)($xml['description'] ?? ''));
         if ($desc !== '') return $desc;
     }
     return $fallback;
+}
+
+function provisioner_readme_first_paragraph(string $readme): string {
+    $content = @file_get_contents($readme);
+    if ($content === false) {
+        return '';
+    }
+    $paragraph = '';
+    $inCode = false;
+    foreach (preg_split('/\R/', $content) as $raw) {
+        $line = trim($raw);
+        if ($inCode) {
+            if (preg_match('/^(?:```|~~~)\s*$/', $line)) {
+                $inCode = false;
+            }
+            continue;
+        }
+        if ($line === '') {
+            if ($paragraph !== '') break;
+            continue;
+        }
+        if (preg_match('/^(?:```|~~~)/', $line)) {
+            $inCode = true;
+            continue;
+        }
+        if (preg_match('/^#{1,6}\s/u', $line)) continue;
+        if (preg_match('/^!\[/u', $line)) continue;
+        if (preg_match('/^(?:-{3,}|\*{3,}|_{3,})$/u', $line)) continue;
+        $line = preg_replace('/<[^>]+>/u', '', $line);
+        $line = preg_replace('/`[^`]*`/u', '', $line);
+        $line = preg_replace('/!\[[^\]]*\]\([^)]*\)/u', '', $line);
+        $line = preg_replace('/\[([^\]]+)\]\([^)]*\)/u', '$1', $line);
+        $line = preg_replace('/[*_~`]/u', '', $line);
+        $line = trim($line);
+        if ($line === '') continue;
+        $paragraph .= ($paragraph !== '' ? ' ' : '') . $line;
+        if (strlen($paragraph) >= 300) break;
+    }
+    if (strlen($paragraph) > 300) {
+        $words = preg_split('/\s+/u', $paragraph);
+        $paragraph = '';
+        foreach ($words as $word) {
+            $candidate = ($paragraph !== '' ? ' ' : '') . $word;
+            if (strlen($paragraph . $candidate) > 300) break;
+            $paragraph .= $candidate;
+        }
+    }
+    return $paragraph;
 }
