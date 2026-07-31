@@ -229,7 +229,7 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
     Unraid Provisioner
   </h1>
 
-  <div class="prov-card" style="margin-bottom:0; padding:10px 16px; display:flex; align-items:center; gap:12px;">
+  <div class="prov-card" style="margin: auto 0; padding:10px 16px; display:flex; align-items:center; gap:12px; align-self:center;">
     <span><i class="fa fa-clock-o"></i> Autodeploy: <strong><?= $autodeployActive ? 'Active' : 'Inactive' ?></strong></span>
     <?php if ($autodeployActive): ?>
     <form method="post" style="margin:0;">
