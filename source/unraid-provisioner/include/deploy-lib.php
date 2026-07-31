@@ -342,62 +342,109 @@ function provisioner_build_profile(string $name, string $description, array $sel
 /**
  * --- Secret anonymization ---
  *
- * Redacts environment variable values whose key name suggests a secret
- * (password, token, API key, etc.), replacing them with a clearly-marked
- * placeholder. Applied on request when generating/building a profile, so
- * the resulting JSON is safe to commit to a shared/public profile
- * repository. This is a best-effort keyword match on the variable name,
- * not a guarantee -- review the output before sharing it.
+ * Redacts secrets when generating/building a profile, so the resulting
+ * JSON is safe to commit to a shared/public profile repository. Applied
+ * on request. Two best-effort layers, neither a guarantee -- review the
+ * output before sharing it:
+ *
+ * 1. Environment keys whose NAME suggests a secret (password, token,
+ *    API key, etc.) get a clearly-marked placeholder.
+ * 2. Environment VALUES are scanned for well-known personal data
+ *    regardless of the key they sit under: credentials embedded in a
+ *    connection string (scheme://user:pass@host), email addresses,
+ *    private (RFC1918) IPv4 addresses, and personal DDNS hostnames.
  */
+
+// Known personal dynamic-DNS providers: a hostname under one of these is
+// almost certainly the owner's own domain, so it is replaced with a
+// clearly-fake placeholder (subdomain preserved) instead of shipping the
+// real domain in a shared profile.
+const PROVISIONER_DDNS_DOMAINS = [
+    'duckdns.org', 'no-ip.org', 'no-ip.com', 'no-ip.biz',
+    'dyndns.org', 'dynu.com', 'myfritz.net', 'zapto.org',
+    'afraid.org', 'freeddns.org', 'ddns.net',
+];
+
 function provisioner_looks_like_secret_key(string $key): bool {
-    return (bool)preg_match('/pass|pwd|secret|token|api[_-]?key|auth|credential|claim/i', $key);
+    return (bool)preg_match('/pass|pwd|secret|token|api[_-]?key|auth|credential/i', $key);
 }
 
 /**
- * Catches sensitive data a key-name check alone misses: the key name is
- * completely unrelated to "secret" but the VALUE itself is sensitive --
- * an email address, a connection string with credentials embedded in it
- * (scheme://user:password@host), a private/loopback IPv4 address, or a
- * hostname under a known dynamic-DNS provider. Confirmed against a real
- * export where DATABASE_URL/NETVISOR_DATABASE_URL leaked a live password
- * this way, SUPERUSER_EMAIL/SMTP_FROM_EMAIL/SMTP_USER leaked real email
- * addresses, and fields like BASE_URL/SITE_URL/ALLOWED_HOST/ADDR/*_HOSTS
- * leaked the private LAN IP and a personal DuckDNS subdomain -- none of
- * those key names matched the secret-key pattern.
+ * Is this a private (RFC1918) IPv4 address? Loopback (127.0.0.0/8),
+ * link-local (169.254.0.0/16), public and bind addresses (0.0.0.0) are
+ * not private and return false, so they are never rewritten.
  */
-function provisioner_looks_like_secret_value(string $value): bool {
-    if (preg_match('#://[^/\s:@]+:[^/\s@]+@#', $value)) {
-        return true; // scheme://user:password@host
+function provisioner_is_private_ipv4(string $ip): bool {
+    if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        return false;
     }
-    if (preg_match('/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/', trim($value))) {
-        return true; // bare email address
+    return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE) === false;
+}
+
+/**
+ * Map a private IPv4 address to a fake one, consistently for the whole
+ * export so the same host keeps the same placeholder everywhere. Never
+ * returns the original address back.
+ */
+function provisioner_private_ipv4_placeholder(string $ip, array &$ipMap): string {
+    if (!isset($ipMap[$ip])) {
+        $n = count($ipMap);
+        do {
+            $n++;
+            $candidate = '192.168.' . (int)(($n - 1) / 255) . '.' . (($n - 1) % 255 + 1);
+        } while ($candidate === $ip);
+        $ipMap[$ip] = $candidate;
     }
-    if (preg_match('#\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|127\.\d{1,3}\.\d{1,3}\.\d{1,3})\b#', $value)) {
-        return true; // private/loopback IPv4 address -- reveals internal network layout
-    }
-    // Common dynamic-DNS providers: a hostname under one of these gives away
-    // the server's real internet-facing address and the owner's chosen
-    // subdomain, even though the key name (BASE_URL, SITE_URL, ALLOWED_HOST,
-    // ADDR, *_HOSTS...) never looks like a "secret".
-    $ddnsProviders = [
-        'duckdns.org', 'no-ip.org', 'no-ip.com', 'no-ip.biz', 'no-ip.info',
-        'ddns.net', 'dynu.com', 'freedns.afraid.org', 'dyndns.org', 'dyn.com',
-        'changeip.com', 'myftp.org', 'servebeer.com', 'sytes.net', 'zapto.org',
-        'hopto.org',
-    ];
-    foreach ($ddnsProviders as $suffix) {
-        if (stripos($value, $suffix) !== false) {
-            return true;
-        }
-    }
-    return false;
+    return $ipMap[$ip];
+}
+
+/**
+ * Redact well-known personal data found in a single env VALUE. $emailMap
+ * and $ipMap are shared across the whole export so the same original
+ * address/IP always maps to the same placeholder. Returns the (possibly
+ * unchanged) value.
+ */
+function provisioner_anonymize_value(string $value, array &$emailMap, array &$ipMap): string {
+    // Credentials embedded in a connection string: scheme://user:pass@host.
+    $value = preg_replace('~(://[^/@\s:]+):[^@\s]+@~', '$1:CHANGE_ME@', $value);
+    // Private IPv4 addresses -> a consistently-mapped fake private address.
+    $value = preg_replace_callback(
+        '/\b(?:\d{1,3}\.){3}\d{1,3}\b/',
+        function (array $m) use (&$ipMap): string {
+            return provisioner_is_private_ipv4($m[0])
+                ? provisioner_private_ipv4_placeholder($m[0], $ipMap)
+                : $m[0];
+        },
+        $value
+    );
+    // Email addresses -> a consistent per-address placeholder. Addresses
+    // already under a reserved example.* domain are left untouched.
+    $value = preg_replace_callback(
+        '/\b[A-Za-z0-9._%+-]+@(?!example\.(?:com|org|net)\b)[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/',
+        function (array $m) use (&$emailMap): string {
+            $addr = strtolower($m[0]);
+            if (!isset($emailMap[$addr])) {
+                $emailMap[$addr] = 'user' . (count($emailMap) + 1) . '@example.com';
+            }
+            return $emailMap[$addr];
+        },
+        $value
+    );
+    // Personal DDNS hostname -> example.duckdns.org, preserving subdomains.
+    $ddns = implode('|', array_map('preg_quote', PROVISIONER_DDNS_DOMAINS));
+    $value = preg_replace("~((?:[A-Za-z0-9-]+\\.)*)[A-Za-z0-9-]+\\.(?:{$ddns})~i", '$1example.duckdns.org', $value);
+    return $value;
 }
 
 function provisioner_anonymize_containers(array $containers): array {
+    $emailMap = [];
+    $ipMap = [];
     foreach ($containers as &$c) {
         foreach ($c['env'] ?? [] as $key => $value) {
-            if (provisioner_looks_like_secret_key($key) || provisioner_looks_like_secret_value((string)$value)) {
+            if (provisioner_looks_like_secret_key($key)) {
                 $c['env'][$key] = 'CHANGE_ME';
+            } else {
+                $c['env'][$key] = provisioner_anonymize_value((string)$value, $emailMap, $ipMap);
             }
         }
     }

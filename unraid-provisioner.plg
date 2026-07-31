@@ -3,14 +3,14 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "unraid-provisioner">
 <!ENTITY author    "Foxy-NC">
-<!ENTITY version   "2026.07.28">
+<!ENTITY version   "2026.07.31">
 <!ENTITY github     "&author;/&name;">
 <!ENTITY launch     "Settings/unraid-provisioner">
 <!ENTITY pluginURL  "https://raw.githubusercontent.com/&github;/master/&name;.plg">
 <!ENTITY supportURL "https://github.com/&github;">
 <!ENTITY iconURL    "unraid-provisioner.png">
 <!ENTITY emhttp     "/usr/local/emhttp/plugins/&name;">
-<!ENTITY MD5        "32f3965521b8372028f2ccb7666ff82e">
+<!ENTITY MD5        "15d7cd067d11e01890a6b92ce23bce53">
 ]>
 
 <PLUGIN name="&name;"
@@ -23,7 +23,9 @@
         min="6.12">
 
   <CHANGES>
-Provision Unraid servers from reusable plugin+container profiles.
+###2026.07.31
+- Anonymization now also redacts private IPv4 addresses (RFC1918) and scans env values for credentials embedded in connection strings, email addresses and personal DDNS hostnames.
+
 ###2026.07.28
 - Initial release.
   </CHANGES>
