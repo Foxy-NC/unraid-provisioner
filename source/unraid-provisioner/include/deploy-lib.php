@@ -537,7 +537,14 @@ function provisioner_plugin_description(string $pluginFile, string $fallback = '
     // Installed plugins carry their description in a README.md rendered on
     // the Plugins page; that is the most reliable text source. Fall back to
     // a non-standard <description> attribute, then to $fallback.
-    $pluginName = basename($pluginFile, '.plg');
+    $xml = @simplexml_load_file($pluginFile);
+    // The install directory follows the "name" declared in the .plg (e.g.
+    // file unraid-r8125.plg declares name "r8125-driver"), not necessarily
+    // the .plg file name itself; internal entities like &name; are resolved.
+    $pluginName = $xml ? trim((string)($xml['name'] ?? '')) : '';
+    if ($pluginName === '') {
+        $pluginName = basename($pluginFile, '.plg');
+    }
     $readme = "/usr/local/emhttp/plugins/{$pluginName}/README.md";
     if (is_file($readme)) {
         $desc = provisioner_readme_first_paragraph($readme);
@@ -546,7 +553,6 @@ function provisioner_plugin_description(string $pluginFile, string $fallback = '
             return ($title !== '' ? "{$title}: {$desc}" : $desc);
         }
     }
-    $xml = @simplexml_load_file($pluginFile);
     if ($xml) {
         $desc = trim((string)($xml['description'] ?? ''));
         if ($desc !== '') return $desc;

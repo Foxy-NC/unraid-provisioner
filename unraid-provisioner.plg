@@ -10,7 +10,7 @@
 <!ENTITY supportURL "https://github.com/&github;">
 <!ENTITY iconURL    "unraid-provisioner.png">
 <!ENTITY emhttp     "/usr/local/emhttp/plugins/&name;">
-<!ENTITY MD5        "af55d57679807cddd2d83e3f337b6d7d">
+<!ENTITY MD5        "6357bcb388e8628c2d14004edcc85650">
 ]>
 
 <PLUGIN name="&name;"
