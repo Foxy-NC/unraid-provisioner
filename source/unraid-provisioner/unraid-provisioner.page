@@ -245,7 +245,7 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 <div class="prov-msg <?= $messageType ?>"><?= $message ?></div>
 <?php endif; ?>
 
-<div class="prov-card">
+<div class="prov-card" style="margin-top:20px;">
   <h2><i class="fa fa-list-ul"></i> Available profiles</h2>
   <table class="prov-table">
     <tr><th>Name</th><th>Version</th><th>Source</th><th>Plugins</th><th>Containers</th><th></th></tr>
