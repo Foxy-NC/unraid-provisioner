@@ -223,10 +223,23 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 }
 </style>
 
-<h1 style="display:flex; align-items:center; gap:12px;">
-  <img src="/plugins/unraid-provisioner/unraid-provisioner.png" alt="" style="width:40px; height:40px;">
-  Unraid Provisioner
-</h1>
+<div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+  <h1 style="display:flex; align-items:center; gap:12px; margin:0;">
+    <img src="/plugins/unraid-provisioner/unraid-provisioner.png" alt="" style="width:40px; height:40px;">
+    Unraid Provisioner
+  </h1>
+
+  <div class="prov-card" style="margin-bottom:0; padding:10px 16px; display:flex; align-items:center; gap:12px;">
+    <span><i class="fa fa-clock-o"></i> Autodeploy: <strong><?= $autodeployActive ? 'Active' : 'Inactive' ?></strong></span>
+    <?php if ($autodeployActive): ?>
+    <form method="post" style="margin:0;">
+      <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
+      <input type="hidden" name="action" value="clear_autodeploy">
+      <button type="submit">Disable</button>
+    </form>
+    <?php endif; ?>
+  </div>
+</div>
 
 <?php if ($message): ?>
 <div class="prov-msg <?= $messageType ?>"><?= $message ?></div>
@@ -272,18 +285,6 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 </div>
 
 <div class="prov-card">
-  <h2><i class="fa fa-clock-o"></i> Autodeploy on first boot</h2>
-  <p>Status: <strong><?= $autodeployActive ? 'Active' : 'Inactive' ?></strong></p>
-  <?php if ($autodeployActive): ?>
-  <form method="post">
-    <input type="hidden" name="csrf_token" value="<?=$csrfToken;?>">
-    <input type="hidden" name="action" value="clear_autodeploy">
-    <button type="submit">Disable autodeploy</button>
-  </form>
-  <?php endif; ?>
-</div>
-
-<div class="prov-card">
   <h2><i class="fa fa-magic"></i> Generate a profile from this server</h2>
   <p><em>Captures currently installed plugins and running containers into a new profile. Review the result before deploying it elsewhere -- plugin URLs and container settings are captured best-effort from the live host.</em></p>
   <form method="post">
@@ -313,7 +314,7 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
 
     <div class="prov-two-col" style="display:flex; gap:32px; flex-wrap:wrap;">
       <div style="flex:1; min-width:300px;">
-        <h4 style="display:flex; justify-content:space-between;"><span>Plugins</span><span><?= count($availablePlugins) ?></span></h4>
+        <h4>Plugins (<?= count($availablePlugins) ?>)</h4>
         <div class="prov-toolbar">
           <input type="text" placeholder="Search plugins..." oninput="provisionerSearch(this,'plugin-item','plugin-group')">
           <a href="#" onclick="provisionerToggleAll('plugin-item', true); provisionerUpdateCount('plugin-item','plugin-selected'); return false;">All</a>
@@ -338,7 +339,7 @@ $pluginSupportUrl = (string)($pluginMeta['support'] ?? '');
       </div>
 
       <div style="flex:1; min-width:300px;">
-        <h4 style="display:flex; justify-content:space-between;"><span>Containers</span><span><?= count($availableContainers) ?></span></h4>
+        <h4>Containers (<?= count($availableContainers) ?>)</h4>
         <div class="prov-toolbar">
           <input type="text" placeholder="Search containers..." oninput="provisionerSearch(this,'container-item','container-group')">
           <a href="#" onclick="provisionerToggleAll('container-item', true); provisionerUpdateCount('container-item','container-selected'); return false;">All</a>
