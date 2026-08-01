@@ -3,14 +3,14 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "unraid-provisioner">
 <!ENTITY author    "Foxy-NC">
-<!ENTITY version   "2026.08.01">
+<!ENTITY version   "2026.08.01.1">
 <!ENTITY github     "&author;/&name;">
 <!ENTITY launch     "Settings/unraid-provisioner">
 <!ENTITY pluginURL  "https://raw.githubusercontent.com/&github;/master/&name;.plg">
 <!ENTITY supportURL "https://github.com/&github;">
 <!ENTITY iconURL    "unraid-provisioner.png">
 <!ENTITY emhttp     "/usr/local/emhttp/plugins/&name;">
-<!ENTITY MD5        "3dcd020f733fd9b2b6fe615da8eaf293">
+<!ENTITY MD5        "0d33beec972131b55712e01530e409b4">
 ]>
 
 <PLUGIN name="&name;"
@@ -23,6 +23,9 @@
         min="6.12">
 
   <CHANGES>
+###2026.08.01.1
+- Plugin categories: CA feed matching is now keyed by the installed .plg file name (plus the full pluginURL as fallback), so plugins installed from URLs that drifted (repo branch moves, etc.) still match; only CA-tracked plugins carry a category.
+
 ###2026.08.01
 - Plugin picker categories now come from the Community Applications feed (downloaded and cached for 24h) instead of the deprecated, now-unused PLUGIN category attribute; graceful fallback to that attribute, then "Uncategorized".
 
