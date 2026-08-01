@@ -457,7 +457,72 @@ function provisioner_anonymize_containers(array $containers): array {
  *
  * Best-effort category lookup, used by the webGui to group and filter the
  * plugin/container picker lists. Not part of the deployed profile schema.
+ *
+ * For plugins there is no authoritative local category source: the <PLUGIN>
+ * category attribute is deprecated, and only the Community Applications feed
+ * assigns real categories (from each plugin's CA template <Category>). The
+ * small feed (~8 MB) is downloaded and cached with a 24 h TTL; any failure
+ * degrades to the deprecated attribute, then "Uncategorized".
  */
+const PROVISIONER_CA_FEED_URL = 'https://ca.unraid.net/cdn/feed/applicationFeed-small.json';
+const PROVISIONER_CA_FEED_TTL = 86400;
+const PROVISIONER_CA_FEED_CACHE = '/tmp/unraid-provisioner/ca-feed.json';
+
+function provisioner_plugin_category_map(): array {
+    static $map = null;
+    if ($map !== null) {
+        return $map;
+    }
+    $map = [];
+    $cache = PROVISIONER_CA_FEED_CACHE;
+    if (is_file($cache)) {
+        $decoded = json_decode((string)@file_get_contents($cache), true);
+        if (is_array($decoded) && isset($decoded['fetched'], $decoded['map'])
+            && time() - (int)$decoded['fetched'] < PROVISIONER_CA_FEED_TTL) {
+            return $map = (array)$decoded['map'];
+        }
+    }
+    $raw = '';
+    $devSnapshot = '/tmp/community.applications/tempFiles/applicationFeed-raw.json';
+    if (is_file($devSnapshot)) {
+        $raw = (string)@file_get_contents($devSnapshot);
+    }
+    $feed = json_decode($raw, true);
+    if (!is_array($feed) || !isset($feed['applist']) || !is_array($feed['applist'])) {
+        $ctx = stream_context_create(['http' => [
+            'timeout' => 20,
+            'user_agent' => 'unraid-provisioner',
+            'header' => "Accept-Encoding: identity\r\n",
+        ]]);
+        $raw = (string)@file_get_contents(PROVISIONER_CA_FEED_URL, false, $ctx);
+        $feed = json_decode($raw, true);
+    }
+    if (is_array($feed) && isset($feed['applist']) && is_array($feed['applist'])) {
+        foreach ($feed['applist'] as $app) {
+            if (empty($app['Plugin']) || empty($app['PluginURL'])) {
+                continue;
+            }
+            // CategoryList goes specific -> generic ("Plugins" is just the
+            // app type); keep the last non-"Plugins" entry, collapsed to its
+            // canonical top-level prefix (Tools-System -> Tools, ...).
+            $categories = array_values(array_filter(
+                $app['CategoryList'] ?? [],
+                fn($c) => $c !== 'Plugins' && $c !== ''
+            ));
+            $category = $categories ? end($categories) : false;
+            if ($category === false) {
+                continue;
+            }
+            $map[trim((string)$app['PluginURL'])] = explode('-', (string)$category)[0];
+        }
+    }
+    // Persist the result (even on failure) so an outage or bad download is
+    // not re-attempted on every page load, only after the TTL elapses.
+    @mkdir(dirname($cache), 0777, true);
+    @file_put_contents($cache, json_encode(['fetched' => time(), 'map' => $map]));
+    return $map;
+}
+
 function provisioner_container_category_map(): array {
     static $map = null;
     if ($map !== null) {
@@ -492,7 +557,16 @@ function provisioner_container_category(string $containerName): string {
 }
 
 function provisioner_plugin_category(string $pluginFile): string {
-    $xml = @simplexml_load_file($pluginFile);
+    // The CA feed is keyed by the .plg's resolved pluginURL attribute
+    // (entities like &gitURL; must be substituted to match it exactly).
+    $xml = @simplexml_load_file($pluginFile, null, LIBXML_NOENT);
+    $pluginUrl = $xml ? trim((string)($xml['pluginURL'] ?? '')) : '';
+    if ($pluginUrl !== '') {
+        $map = provisioner_plugin_category_map();
+        if (!empty($map[$pluginUrl])) {
+            return $map[$pluginUrl];
+        }
+    }
     if ($xml) {
         $cat = trim((string)($xml['category'] ?? ''));
         if ($cat !== '') return $cat;
